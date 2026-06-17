@@ -1,0 +1,27 @@
+{
+  "service": "notification-service",
+  "window": "last_45_minutes",
+  "metrics": {
+    "error_rate": {
+      "before": "2%",
+      "current": "18%",
+      "threshold": "5%"
+    },
+    "p99_latency": {
+      "before": "180ms",
+      "current": "950ms",
+      "threshold": "500ms"
+    },
+    "kafka_consumer_lag": {
+      "before": "120",
+      "current": "18450",
+      "threshold": "1000"
+    },
+    "cpu_usage": {
+      "before": "42%",
+      "current": "58%",
+      "threshold": "80%"
+    }
+  }
+}
+

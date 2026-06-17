@@ -1,0 +1,13 @@
+[
+  {
+    "service": "notification-service",
+    "deployed_at": "2026-06-13T10:05:00Z",
+    "commit": "abc123",
+    "changes": [
+      "Updated Kafka consumer retry timeout",
+      "Changed max.poll.records from 500 to 100"
+    ],
+    "deployed_by": "demo-user"
+  }
+]
+

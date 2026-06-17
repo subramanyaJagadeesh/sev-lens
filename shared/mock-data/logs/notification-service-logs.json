@@ -1,0 +1,23 @@
+{
+  "service": "notification-service",
+  "window": "last_15_minutes",
+  "top_errors": [
+    {
+      "error": "KafkaTimeoutException",
+      "count": 842,
+      "first_seen": "10:21 AM",
+      "last_seen": "10:34 AM"
+    },
+    {
+      "error": "SSEClientDisconnectException",
+      "count": 421,
+      "first_seen": "10:24 AM",
+      "last_seen": "10:34 AM"
+    }
+  ],
+  "sample_messages": [
+    "KafkaTimeoutException while polling topic notification-events",
+    "SSEClientDisconnectException while pushing alert to user"
+  ]
+}
+

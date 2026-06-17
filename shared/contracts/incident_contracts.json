@@ -1,0 +1,39 @@
+{
+  "incident_statuses": [
+    "CREATED",
+    "ANALYZING",
+    "RECOMMENDATION_READY",
+    "APPROVED",
+    "REJECTED",
+    "ESCALATED",
+    "FAILED"
+  ],
+  "event_types": [
+    "INCIDENT_CREATED",
+    "ANALYSIS_STARTED",
+    "SEVERITY_CLASSIFIED",
+    "LOGS_FETCHED",
+    "METRICS_FETCHED",
+    "DEPLOYMENT_CHECKED",
+    "RUNBOOK_RETRIEVED",
+    "RCA_RETRIEVED",
+    "RECOMMENDATION_GENERATED",
+    "HUMAN_APPROVED",
+    "HUMAN_REJECTED",
+    "HUMAN_ESCALATED",
+    "ANALYSIS_FAILED"
+  ],
+  "decision_types": [
+    "APPROVE",
+    "REJECT",
+    "ESCALATE"
+  ],
+  "recommendation_schema": {
+    "summary": "string",
+    "evidence": ["string"],
+    "recommended_actions": ["string"],
+    "confidence": "low | medium | high",
+    "requires_human_approval": true
+  }
+}
+

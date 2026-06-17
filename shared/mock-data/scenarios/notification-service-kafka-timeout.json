@@ -1,0 +1,22 @@
+{
+  "scenario_id": "notification-service-kafka-timeout",
+  "service_name": "notification-service",
+  "severity": "P2",
+  "symptom": "High error rate with KafkaTimeoutException",
+  "metric_name": "error_rate",
+  "metric_value": "18%",
+  "threshold_value": "5%",
+  "logs": "shared/mock-data/logs/notification-service-logs.json",
+  "metrics": "shared/mock-data/metrics/notification-service-metrics.json",
+  "deployments": "shared/mock-data/deployments/deployments.json",
+  "service_metadata": "shared/mock-data/services/service-catalog.json",
+  "runbooks": [
+    "docs/runbooks/notification-service-runbook.md",
+    "docs/runbooks/kafka-consumer-lag-runbook.md",
+    "docs/runbooks/deployment-rollback-sop.md"
+  ],
+  "rcas": [
+    "docs/rcas/rca-notification-kafka-timeout.md"
+  ]
+}
+

@@ -1,0 +1,22 @@
+{
+  "service": "database-service",
+  "window": "last_45_minutes",
+  "metrics": {
+    "connection_pool_utilization": {
+      "before": "48%",
+      "current": "98%",
+      "threshold": "85%"
+    },
+    "p99_latency": {
+      "before": "140ms",
+      "current": "1200ms",
+      "threshold": "500ms"
+    },
+    "error_rate": {
+      "before": "1%",
+      "current": "12%",
+      "threshold": "5%"
+    }
+  }
+}
+

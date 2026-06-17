@@ -1,0 +1,23 @@
+{
+  "service": "database-service",
+  "window": "last_15_minutes",
+  "top_errors": [
+    {
+      "error": "ConnectionTimeoutException",
+      "count": 96,
+      "first_seen": "10:22 AM",
+      "last_seen": "10:34 AM"
+    },
+    {
+      "error": "PoolExhaustedException",
+      "count": 31,
+      "first_seen": "10:23 AM",
+      "last_seen": "10:34 AM"
+    }
+  ],
+  "sample_messages": [
+    "ConnectionTimeoutException while acquiring database handle",
+    "PoolExhaustedException after retry surge"
+  ]
+}
+

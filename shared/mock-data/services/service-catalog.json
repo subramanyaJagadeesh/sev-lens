@@ -1,0 +1,29 @@
+[
+  {
+    "service_name": "notification-service",
+    "owner_team": "Messaging Platform",
+    "slack_channel": "#ops-notifications",
+    "criticality": "high",
+    "dependencies": [
+      "kafka",
+      "user-directory"
+    ],
+    "runbooks": [
+      "docs/runbooks/notification-service-runbook.md",
+      "docs/runbooks/kafka-consumer-lag-runbook.md"
+    ]
+  },
+  {
+    "service_name": "database-service",
+    "owner_team": "Data Platform",
+    "slack_channel": "#ops-database",
+    "criticality": "high",
+    "dependencies": [
+      "postgres"
+    ],
+    "runbooks": [
+      "docs/runbooks/database-connection-pool-runbook.md"
+    ]
+  }
+]
+
