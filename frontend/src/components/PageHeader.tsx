@@ -57,7 +57,7 @@ export function PageHeader({ title, description, showBackButton, onBack, actions
           ) : null}
         </div>
         <div className="min-w-0">
-          <p className="heading-eyebrow text-xs">OpsPulse</p>
+          <p className="heading-eyebrow text-xs">SevLens</p>
           <h1 className="text-2xl font-semibold">{title}</h1>
           <p className="text-sm text-muted">{description}</p>
         </div>

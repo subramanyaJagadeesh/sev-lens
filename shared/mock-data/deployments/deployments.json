@@ -8,6 +8,35 @@
       "Changed max.poll.records from 500 to 100"
     ],
     "deployed_by": "demo-user"
+  },
+  {
+    "service": "database-service",
+    "deployed_at": "2026-06-14T09:40:00Z",
+    "commit": "def456",
+    "changes": [
+      "Raised JDBC pool min idle",
+      "Tuned query timeout guardrails"
+    ],
+    "deployed_by": "demo-user"
+  },
+  {
+    "service": "api-gateway",
+    "deployed_at": "2026-06-15T11:15:00Z",
+    "commit": "ghi789",
+    "changes": [
+      "Enabled stricter upstream retry budget",
+      "Adjusted route-level request timeout"
+    ],
+    "deployed_by": "demo-user"
+  },
+  {
+    "service": "worker-queue",
+    "deployed_at": "2026-06-15T14:10:00Z",
+    "commit": "jkl012",
+    "changes": [
+      "Reduced worker concurrency during maintenance window",
+      "Added queue drain backoff"
+    ],
+    "deployed_by": "demo-user"
   }
 ]
-

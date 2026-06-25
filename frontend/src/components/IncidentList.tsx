@@ -1,4 +1,5 @@
 import type { IncidentSummary } from "../contracts/incidentContracts";
+import { formatStatusLabel } from "../lib/statusLabels";
 
 type Props = {
   incidents: IncidentSummary[];
@@ -24,12 +25,13 @@ export function IncidentList({ incidents, selectedIncidentId, onSelectIncident }
                 <p className="text-sm text-muted">{incident.service_name}</p>
                 <h3 className="font-semibold text-strong">{incident.symptom}</h3>
               </div>
-              <span className="chip-accent px-3 py-1 text-xs">{incident.status}</span>
+              <span className="chip-accent px-3 py-1 text-xs">{formatStatusLabel(incident.status)}</span>
             </div>
             <div className="mt-3 flex items-center justify-between text-xs text-subtle">
-              <span>{incident.severity}</span>
-              <span>{incident.recommendation_status}</span>
+              <span>{formatStatusLabel(incident.severity)}</span>
+              <span>{formatStatusLabel(incident.recommendation_status)}</span>
             </div>
+            {incident.status === "QUEUED" ? <p className="mt-2 text-xs text-muted">Waiting for async analysis</p> : null}
           </button>
         );
       })}

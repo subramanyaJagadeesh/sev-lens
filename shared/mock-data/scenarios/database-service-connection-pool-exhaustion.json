@@ -1,0 +1,20 @@
+{
+  "scenario_id": "database-service-connection-pool-exhaustion",
+  "service_name": "database-service",
+  "severity": "P1",
+  "symptom": "Requests time out while acquiring database connections",
+  "metric_name": "connection_pool_utilization",
+  "metric_value": "98%",
+  "threshold_value": "85%",
+  "logs": "shared/mock-data/logs/database-service-logs.json",
+  "metrics": "shared/mock-data/metrics/database-service-metrics.json",
+  "deployments": "shared/mock-data/deployments/deployments.json",
+  "service_metadata": "shared/mock-data/services/service-catalog.json",
+  "runbooks": [
+    "docs/runbooks/database-connection-pool-runbook.md",
+    "docs/runbooks/deployment-rollback-sop.md"
+  ],
+  "rcas": [
+    "docs/rcas/rca-db-connection-exhaustion.md"
+  ]
+}

@@ -39,10 +39,10 @@ export function getIncident(incidentId: string): Promise<IncidentDetail> {
   return requestJson<IncidentDetail>(`/api/incidents/${incidentId}`);
 }
 
-export function triggerMockIncident(): Promise<IncidentSummary> {
+export function triggerMockIncident(scenario: string): Promise<IncidentSummary> {
   return requestJson<IncidentSummary>("/api/incidents/mock", {
     method: "POST",
-    body: JSON.stringify({ scenario: "notification-service-kafka-timeout" }),
+    body: JSON.stringify({ scenario }),
   });
 }
 
@@ -54,6 +54,12 @@ export function postDecision(
   return requestJson<IncidentDecision>(`/api/incidents/${incidentId}/decision`, {
     method: "POST",
     body: JSON.stringify({ decision, note }),
+  });
+}
+
+export function retryIncidentAnalysis(incidentId: string): Promise<IncidentSummary> {
+  return requestJson<IncidentSummary>(`/api/incidents/${incidentId}/analysis/retry`, {
+    method: "POST",
   });
 }
 

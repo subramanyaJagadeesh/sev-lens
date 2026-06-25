@@ -7,7 +7,7 @@ from .schemas import OperativeContext, RetrievedDocumentChunk
 
 
 SYSTEM_PROMPT = """You are an incident response assistant.
-Use only the provided incident context, operational data, and retrieved documents.
+Use only the provided incident context, tool execution results, operational data, and retrieved documents.
 Return a single JSON object matching this schema:
 {
   "summary": "string",
@@ -26,10 +26,15 @@ def build_user_prompt(
 ) -> str:
     chunk_payload = [chunk.model_dump(mode="json") for chunk in retrieved_chunks]
     context_payload = operational_context.model_dump(mode="json")
+    tool_results_payload = context_payload.pop("tool_results", [])
+    context_payload.pop("runbook_chunks", None)
+    context_payload.pop("rca_chunks", None)
     return "\n\n".join(
         [
             "Incident context:",
             query,
+            "Tool execution results:",
+            json.dumps(tool_results_payload, indent=2) if tool_results_payload else "[]",
             "Operational context:",
             json.dumps(context_payload, indent=2),
             "Retrieved documents:",

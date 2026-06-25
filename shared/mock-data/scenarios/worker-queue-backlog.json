@@ -1,0 +1,20 @@
+{
+  "scenario_id": "worker-queue-backlog",
+  "service_name": "worker-queue",
+  "severity": "P3",
+  "symptom": "Background jobs pile up behind a stalled worker queue",
+  "metric_name": "queue_depth",
+  "metric_value": "6800",
+  "threshold_value": "1000",
+  "logs": "shared/mock-data/logs/worker-queue-logs.json",
+  "metrics": "shared/mock-data/metrics/worker-queue-metrics.json",
+  "deployments": "shared/mock-data/deployments/deployments.json",
+  "service_metadata": "shared/mock-data/services/service-catalog.json",
+  "runbooks": [
+    "docs/runbooks/worker-queue-backlog-runbook.md",
+    "docs/runbooks/deployment-rollback-sop.md"
+  ],
+  "rcas": [
+    "docs/rcas/rca-worker-queue-backlog.md"
+  ]
+}

@@ -1,11 +1,12 @@
 import Highcharts from "highcharts";
 import HighchartsReact from "highcharts-react-official";
-import type { IncidentSummary } from "../contracts/incidentContracts";
+import type { IncidentAnalysisRun, IncidentSummary } from "../contracts/incidentContracts";
 import type { EventRecord } from "../contracts/eventView";
 
 type Props = {
   incidents: IncidentSummary[];
   events: EventRecord[];
+  analysisRuns: IncidentAnalysisRun[];
   theme: "light" | "dark";
 };
 
@@ -13,6 +14,17 @@ function countBy<T>(items: T[], keyGetter: (item: T) => string) {
   return items.reduce<Record<string, number>>((accumulator, item) => {
     const key = keyGetter(item);
     accumulator[key] = (accumulator[key] ?? 0) + 1;
+    return accumulator;
+  }, {});
+}
+
+function averageBy<T>(items: T[], keyGetter: (item: T) => string, valueGetter: (item: T) => number) {
+  return items.reduce<Record<string, { sum: number; count: number }>>((accumulator, item) => {
+    const key = keyGetter(item);
+    const bucket = accumulator[key] ?? { sum: 0, count: 0 };
+    bucket.sum += valueGetter(item);
+    bucket.count += 1;
+    accumulator[key] = bucket;
     return accumulator;
   }, {});
 }
@@ -67,10 +79,11 @@ function commonOptions(theme: "light" | "dark") {
   } as const;
 }
 
-export function DashboardCharts({ incidents, events, theme }: Props) {
+export function DashboardCharts({ incidents, events, analysisRuns, theme }: Props) {
   const incidentStatusCounts = countBy(incidents, (incident) => incident.status);
   const eventTypeCounts = countBy(events, (event) => event.event_type);
   const eventCountsByIncident = countBy(events, (event) => event.incident_id);
+  const hitRateByScenario = averageBy(analysisRuns, (run) => run.scenario_type, (run) => run.expected_document_hit_rate);
 
   const incidentStatusOptions = {
     ...commonOptions(theme),
@@ -146,8 +159,54 @@ export function DashboardCharts({ incidents, events, theme }: Props) {
     ],
   };
 
+  const evaluationLatencyOptions = {
+    ...commonOptions(theme),
+    chart: { ...commonOptions(theme).chart, type: "bar" as const },
+    xAxis: {
+      ...commonOptions(theme).xAxis,
+      categories: analysisRuns.map((run) => run.scenario_type),
+    },
+    tooltip: {
+      ...commonOptions(theme).tooltip,
+      pointFormat: "<b>{point.y}</b> ms",
+    },
+    colors: heatmapColors(theme),
+    series: [
+      {
+        type: "bar" as const,
+        data: analysisRuns.map((run, index) => ({
+          y: run.analysis_latency_ms ?? 0,
+          color: heatmapColors(theme)[index % heatmapColors(theme).length],
+        })),
+      },
+    ],
+  };
+
+  const evaluationHitRateOptions = {
+    ...commonOptions(theme),
+    chart: { ...commonOptions(theme).chart, type: "column" as const },
+    xAxis: {
+      ...commonOptions(theme).xAxis,
+      categories: Object.keys(hitRateByScenario),
+    },
+    tooltip: {
+      ...commonOptions(theme).tooltip,
+      pointFormat: "<b>{point.y}%</b> hit rate",
+    },
+    colors: heatmapColors(theme),
+    series: [
+      {
+        type: "column" as const,
+        data: Object.values(hitRateByScenario).map((bucket, index) => ({
+          y: Math.round((bucket.sum / bucket.count) * 100),
+          color: heatmapColors(theme)[index % heatmapColors(theme).length],
+        })),
+      },
+    ],
+  };
+
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-5">
       <div className="panel rounded-2xl p-5">
         <div className="mb-4">
           <h3 className="text-lg font-semibold">Incident status mix</h3>
@@ -170,6 +229,22 @@ export function DashboardCharts({ incidents, events, theme }: Props) {
           <p className="text-sm text-muted">How much activity each incident has accumulated.</p>
         </div>
         <HighchartsReact highcharts={Highcharts} options={eventCountOptions} />
+      </div>
+
+      <div className="panel rounded-2xl p-5">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold">Analysis latency</h3>
+          <p className="text-sm text-muted">Completed run timing across scenario types.</p>
+        </div>
+        <HighchartsReact highcharts={Highcharts} options={evaluationLatencyOptions} />
+      </div>
+
+      <div className="panel rounded-2xl p-5">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold">Evidence hit rate</h3>
+          <p className="text-sm text-muted">Scenario-level retrieval quality across completed runs.</p>
+        </div>
+        <HighchartsReact highcharts={Highcharts} options={evaluationHitRateOptions} />
       </div>
     </div>
   );

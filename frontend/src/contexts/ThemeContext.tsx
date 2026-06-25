@@ -11,7 +11,7 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getInitialTheme(): Theme {
-  const savedTheme = window.localStorage.getItem("opspulse-theme");
+  const savedTheme = window.localStorage.getItem("sevlens-theme");
   if (savedTheme === "light" || savedTheme === "dark") {
     return savedTheme;
   }
@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("opspulse-theme", theme);
+    window.localStorage.setItem("sevlens-theme", theme);
   }, [theme]);
 
   const value = useMemo<ThemeContextValue>(

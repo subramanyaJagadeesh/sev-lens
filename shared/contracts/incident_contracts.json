@@ -1,6 +1,7 @@
 {
   "incident_statuses": [
     "CREATED",
+    "QUEUED",
     "ANALYZING",
     "RECOMMENDATION_READY",
     "APPROVED",
@@ -10,6 +11,7 @@
   ],
   "event_types": [
     "INCIDENT_CREATED",
+    "ANALYSIS_QUEUED",
     "ANALYSIS_STARTED",
     "SEVERITY_CLASSIFIED",
     "LOGS_FETCHED",
@@ -28,6 +30,68 @@
     "REJECT",
     "ESCALATE"
   ],
+  "incident_scenarios": [
+    {
+      "scenario_id": "notification-service-kafka-timeout",
+      "label": "Notification service Kafka timeout",
+      "service_name": "notification-service",
+      "severity": "P2",
+      "is_default": true,
+      "description": "High error rate with KafkaTimeoutException",
+      "scenario_path": "shared/mock-data/scenarios/notification-service-kafka-timeout.json",
+      "expected_evidence_signals": [
+        "KafkaTimeoutException",
+        "SSEClientDisconnectException",
+        "retry timeout"
+      ],
+      "expected_recommendation_direction": "stabilize_kafka_consumers"
+    },
+    {
+      "scenario_id": "database-service-connection-pool-exhaustion",
+      "label": "Database connection pool exhaustion",
+      "service_name": "database-service",
+      "severity": "P1",
+      "is_default": false,
+      "description": "Traffic spikes saturate the database connection pool",
+      "scenario_path": "shared/mock-data/scenarios/database-service-connection-pool-exhaustion.json",
+      "expected_evidence_signals": [
+        "PoolExhaustedException",
+        "connection pool",
+        "retry surge"
+      ],
+      "expected_recommendation_direction": "scale_connection_pool"
+    },
+    {
+      "scenario_id": "api-gateway-latency-spike",
+      "label": "API gateway latency spike",
+      "service_name": "api-gateway",
+      "severity": "P2",
+      "is_default": false,
+      "description": "A gateway traffic surge pushes request latency above thresholds",
+      "scenario_path": "shared/mock-data/scenarios/api-gateway-latency-spike.json",
+      "expected_evidence_signals": [
+        "UpstreamReadTimeout",
+        "retry budget",
+        "p99 latency"
+      ],
+      "expected_recommendation_direction": "tune_gateway_timeouts"
+    },
+    {
+      "scenario_id": "worker-queue-backlog",
+      "label": "Worker queue backlog",
+      "service_name": "worker-queue",
+      "severity": "P3",
+      "is_default": false,
+      "description": "Background jobs accumulate faster than workers can process them",
+      "scenario_path": "shared/mock-data/scenarios/worker-queue-backlog.json",
+      "expected_evidence_signals": [
+        "queue backlog",
+        "worker saturation",
+        "pending jobs"
+      ],
+      "expected_recommendation_direction": "scale_workers_and_drain_queue"
+    }
+  ],
   "recommendation_schema": {
     "summary": "string",
     "evidence": ["string"],
@@ -36,4 +100,3 @@
     "requires_human_approval": true
   }
 }
-

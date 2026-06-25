@@ -95,10 +95,37 @@ class IncidentRepository:
                 """
             )
             self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS incident_analysis_runs (
+                    id TEXT PRIMARY KEY,
+                    incident_id TEXT NOT NULL,
+                    scenario_id TEXT NOT NULL,
+                    scenario_type TEXT NOT NULL,
+                    trigger_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    analysis_latency_ms INTEGER,
+                    retrieved_document_count INTEGER NOT NULL DEFAULT 0,
+                    expected_document_hit_rate REAL NOT NULL DEFAULT 0,
+                    evidence_count INTEGER NOT NULL DEFAULT 0,
+                    recommended_action_count INTEGER NOT NULL DEFAULT 0,
+                    confidence_value TEXT,
+                    human_decision_outcome TEXT,
+                    expected_evidence_signals TEXT NOT NULL DEFAULT '[]',
+                    expected_recommendation_direction TEXT NOT NULL DEFAULT ''
+                )
+                """
+            )
+            self._connection.execute(
                 "CREATE INDEX IF NOT EXISTS incident_events_incident_id_idx ON incident_events (incident_id, sequence)"
             )
             self._connection.execute(
                 "CREATE INDEX IF NOT EXISTS incident_decisions_incident_id_idx ON incident_decisions (incident_id, created_at DESC)"
+            )
+            self._connection.execute(
+                "CREATE INDEX IF NOT EXISTS incident_analysis_runs_incident_id_idx ON incident_analysis_runs (incident_id, created_at DESC)"
             )
 
     @contextmanager
@@ -113,6 +140,9 @@ class IncidentRepository:
             "service_name": row["service_name"],
             "severity": row["severity"],
             "symptom": row["symptom"],
+            "metric_name": row["metric_name"],
+            "metric_value": row["metric_value"],
+            "threshold_value": row["threshold_value"],
             "status": IncidentStatus(row["status"]),
             "created_at": parse_dt(row["created_at"]),
             "updated_at": parse_dt(row["updated_at"]),
@@ -152,6 +182,28 @@ class IncidentRepository:
             "decided_by": row["decided_by"],
             "note": row["note"],
             "created_at": parse_dt(row["created_at"]),
+        }
+
+    def _row_to_analysis_run(self, row: sqlite3.Row) -> dict:
+        return {
+            "analysis_run_id": row["id"],
+            "incident_id": row["incident_id"],
+            "scenario_id": row["scenario_id"],
+            "scenario_type": row["scenario_type"],
+            "trigger_type": row["trigger_type"],
+            "status": row["status"],
+            "created_at": parse_dt(row["created_at"]),
+            "started_at": parse_dt(row["started_at"]) if row["started_at"] else None,
+            "completed_at": parse_dt(row["completed_at"]) if row["completed_at"] else None,
+            "analysis_latency_ms": row["analysis_latency_ms"],
+            "retrieved_document_count": row["retrieved_document_count"],
+            "expected_document_hit_rate": row["expected_document_hit_rate"],
+            "evidence_count": row["evidence_count"],
+            "recommended_action_count": row["recommended_action_count"],
+            "confidence_value": row["confidence_value"],
+            "human_decision_outcome": row["human_decision_outcome"],
+            "expected_evidence_signals": json.loads(row["expected_evidence_signals"] or "[]"),
+            "expected_recommendation_direction": row["expected_recommendation_direction"],
         }
 
     def create_incident(self, scenario: dict) -> dict:
@@ -307,6 +359,17 @@ class IncidentRepository:
                 return None
         return self._row_to_recommendation(row)
 
+    def list_recommendations(self, incident_id: str | None = None) -> list[dict]:
+        query = "SELECT * FROM incident_recommendations"
+        params: tuple[object, ...] = ()
+        if incident_id is not None:
+            query += " WHERE incident_id = ?"
+            params = (incident_id,)
+        query += " ORDER BY created_at ASC"
+        with self._locked():
+            cursor = self._connection.execute(query, params)
+            return [self._row_to_recommendation(row) for row in cursor.fetchall()]
+
     def save_decision(self, incident_id: str, decision: DecisionType, decided_by: str, note: str | None = None) -> dict:
         # Human decisions are stored separately from timeline events so the UI can show both.
         decision_id = str(uuid4())
@@ -321,6 +384,7 @@ class IncidentRepository:
             )
             cursor = self._connection.execute("SELECT * FROM incident_decisions WHERE id = ?", (decision_id,))
             row = cursor.fetchone()
+        self.update_latest_analysis_run_human_decision(incident_id, decision.value)
         return self._row_to_decision(row)
 
     def get_decision(self, incident_id: str) -> dict | None:
@@ -346,3 +410,121 @@ class IncidentRepository:
     def get_approval_status(self, incident_id: str) -> str | None:
         decision = self.get_decision(incident_id)
         return decision["decision"].value if decision else None
+
+    def create_analysis_run(self, incident_id: str, scenario: dict, trigger_type: str) -> dict:
+        run_id = str(uuid4())
+        timestamp = iso_now()
+        with self._locked(), self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO incident_analysis_runs (
+                    id, incident_id, scenario_id, scenario_type, trigger_type, status, created_at,
+                    expected_evidence_signals, expected_recommendation_direction
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    incident_id,
+                    scenario["scenario_id"],
+                    scenario.get("label") or scenario["scenario_id"],
+                    trigger_type,
+                    "QUEUED",
+                    timestamp,
+                    json.dumps(scenario.get("expected_evidence_signals") or []),
+                    scenario.get("expected_recommendation_direction") or "",
+                ),
+            )
+            cursor = self._connection.execute("SELECT * FROM incident_analysis_runs WHERE id = ?", (run_id,))
+            row = cursor.fetchone()
+        return self._row_to_analysis_run(row)
+
+    def get_latest_analysis_run(self, incident_id: str) -> dict | None:
+        with self._locked():
+            cursor = self._connection.execute(
+                """
+                SELECT * FROM incident_analysis_runs
+                WHERE incident_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (incident_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_analysis_run(row)
+
+    def get_analysis_run_by_id(self, analysis_run_id: str) -> dict | None:
+        with self._locked():
+            cursor = self._connection.execute(
+                "SELECT * FROM incident_analysis_runs WHERE id = ?",
+                (analysis_run_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return None
+        return self._row_to_analysis_run(row)
+
+    def list_analysis_runs(self, incident_id: str | None = None) -> list[dict]:
+        query = "SELECT * FROM incident_analysis_runs"
+        params: tuple[object, ...] = ()
+        if incident_id is not None:
+            query += " WHERE incident_id = ?"
+            params = (incident_id,)
+        query += " ORDER BY created_at DESC"
+        with self._locked():
+            cursor = self._connection.execute(query, params)
+            return [self._row_to_analysis_run(row) for row in cursor.fetchall()]
+
+    def update_analysis_run(
+        self,
+        analysis_run_id: str,
+        *,
+        status: str | None = None,
+        started_at: str | None = None,
+        completed_at: str | None = None,
+        analysis_latency_ms: int | None = None,
+        retrieved_document_count: int | None = None,
+        expected_document_hit_rate: float | None = None,
+        evidence_count: int | None = None,
+        recommended_action_count: int | None = None,
+        confidence_value: str | None = None,
+        human_decision_outcome: str | None = None,
+    ) -> dict | None:
+        fields: list[str] = []
+        values: list[object] = []
+        updates = {
+            "status": status,
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "analysis_latency_ms": analysis_latency_ms,
+            "retrieved_document_count": retrieved_document_count,
+            "expected_document_hit_rate": expected_document_hit_rate,
+            "evidence_count": evidence_count,
+            "recommended_action_count": recommended_action_count,
+            "confidence_value": confidence_value,
+            "human_decision_outcome": human_decision_outcome,
+        }
+        for column, value in updates.items():
+            if value is None:
+                continue
+            fields.append(f"{column} = ?")
+            values.append(value)
+        if not fields:
+            return self.get_analysis_run_by_id(analysis_run_id)
+        values.append(analysis_run_id)
+        with self._locked(), self._connection:
+            self._connection.execute(
+                f"UPDATE incident_analysis_runs SET {', '.join(fields)} WHERE id = ?",
+                tuple(values),
+            )
+        return self.get_analysis_run_by_id(analysis_run_id)
+
+    def update_latest_analysis_run_human_decision(self, incident_id: str, human_decision_outcome: str) -> dict | None:
+        latest_run = self.get_latest_analysis_run(incident_id)
+        if latest_run is None:
+            return None
+        return self.update_analysis_run(
+            latest_run["analysis_run_id"],
+            human_decision_outcome=human_decision_outcome,
+        )

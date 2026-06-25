@@ -1,0 +1,22 @@
+{
+  "service": "worker-queue",
+  "window": "last_15_minutes",
+  "top_errors": [
+    {
+      "error": "QueueLagExceeded",
+      "count": 188,
+      "first_seen": "10:18 AM",
+      "last_seen": "10:34 AM"
+    },
+    {
+      "error": "WorkerHeartbeatMissed",
+      "count": 44,
+      "first_seen": "10:24 AM",
+      "last_seen": "10:34 AM"
+    }
+  ],
+  "sample_messages": [
+    "QueueLagExceeded while backlog crossed 6000 jobs",
+    "WorkerHeartbeatMissed after downstream dependency timeout"
+  ]
+}

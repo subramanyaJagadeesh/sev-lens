@@ -1,0 +1,20 @@
+{
+  "scenario_id": "api-gateway-latency-spike",
+  "service_name": "api-gateway",
+  "severity": "P2",
+  "symptom": "Client requests stall behind a gateway latency spike",
+  "metric_name": "p99_latency",
+  "metric_value": "1200ms",
+  "threshold_value": "500ms",
+  "logs": "shared/mock-data/logs/api-gateway-logs.json",
+  "metrics": "shared/mock-data/metrics/api-gateway-metrics.json",
+  "deployments": "shared/mock-data/deployments/deployments.json",
+  "service_metadata": "shared/mock-data/services/service-catalog.json",
+  "runbooks": [
+    "docs/runbooks/api-gateway-latency-runbook.md",
+    "docs/runbooks/deployment-rollback-sop.md"
+  ],
+  "rcas": [
+    "docs/rcas/rca-api-gateway-latency.md"
+  ]
+}
