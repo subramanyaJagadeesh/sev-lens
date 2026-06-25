@@ -1,0 +1,21 @@
+{
+  "service": "api-gateway",
+  "window": "last_45_minutes",
+  "metrics": {
+    "p99_latency": {
+      "before": "220ms",
+      "current": "1200ms",
+      "threshold": "500ms"
+    },
+    "error_rate": {
+      "before": "0.5%",
+      "current": "8%",
+      "threshold": "3%"
+    },
+    "upstream_timeout_rate": {
+      "before": "0.2%",
+      "current": "6%",
+      "threshold": "2%"
+    }
+  }
+}

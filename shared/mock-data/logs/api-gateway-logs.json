@@ -1,0 +1,22 @@
+{
+  "service": "api-gateway",
+  "window": "last_15_minutes",
+  "top_errors": [
+    {
+      "error": "GatewayTimeoutException",
+      "count": 214,
+      "first_seen": "10:20 AM",
+      "last_seen": "10:34 AM"
+    },
+    {
+      "error": "UpstreamReadTimeout",
+      "count": 127,
+      "first_seen": "10:22 AM",
+      "last_seen": "10:34 AM"
+    }
+  ],
+  "sample_messages": [
+    "GatewayTimeoutException while proxying /checkout",
+    "UpstreamReadTimeout after retry budget exhausted"
+  ]
+}

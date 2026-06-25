@@ -1,11 +1,11 @@
-# OpsPulse V1 Stage Tracker
+# SevLens V1 Stage Tracker
 
 This document is the source of truth for the V1 rollout plan, current stage, what has been implemented, what comes next, and any design fixes we agree on along the way.
 
 ## Current State
 
-- **Current stage:** Stage 5
-- **Implementation status:** Stage 5 complete
+- **Current stage:** Closed
+- **Implementation status:** V1 complete and archived
 - **Design changes agreed so far:** FastAPI for both backend services; manual testing only; stage tracker is the source of truth; incident API uses a local SQLite-backed persistence layer for the V1 demo/runtime; shared incident/recommendation shapes are now DB-backed and exposed through the incident API; the recommendation schema itself is DB-backed; the incident API calls the RAG service synchronously when creating the seeded mock incident; both backend services are independently runnable from their own folders/venvs; `shared` resolves through each service's local startup bootstrap; both backend services allow the frontend origin via the shared CORS allowlist; RAG service uses local markdown/JSON data with optional Chroma-backed retrieval; local LLM testing uses Ollama through its native `/api/chat` endpoint; Ollama defaults now use `RAG_LLM_BASE_URL=http://localhost:11434/api` plus `RAG_LLM_MODEL=qwen3.5:4b`; the RAG service auto-loads its local `.env` file on startup; the service loads service-specific mock log/metric files with `-logs` and `-metrics` suffixes; the RAG service now emits targeted info logs for request receipt, context loading, retrieval count, prompt size, and LLM timing; the frontend theme now uses a light/dark token system with a warm mud-orange accent palette; the frontend now uses a routed page architecture with theme/layout/data contexts, a fully collapsible left nav that animates closed and open, the collapse/expand control located in the page header, dashboard and incidents as separate pages, incident detail on its own route, dashboard showing only charts and recent incidents, the incidents page handling search/filter controls, and the incident detail page placing the event chain next to the recommendation/decision stack; page headers are now plain inline bars rather than cards, with transparent icon buttons for sidebar toggle, back navigation, and theme switching; the sidebar is now a fixed page edge rail with a right border instead of being embedded in the main content container; dashboard charts now use multi-color, heatmap-like palettes rather than a monochrome accent; the frontend dashboard now includes Highcharts incident/event metrics plus recent incidents and live SSE-backed incident detail views on the incidents route; Stage 3 uses a balanced LLM scope where code handles retrieval/validation and the LLM handles synthesis; Stage 4 frontend tooling is configured for Node 20 with standard React/TypeScript interop and a CommonJS Tailwind config.
 
 ## Project-wide decisions
@@ -19,7 +19,7 @@ This document is the source of truth for the V1 rollout plan, current stage, wha
 - The recommendation schema is stored in the same DB-backed registry.
 - Both backend services are independently runnable from their own folders and virtualenvs.
 - Each backend service has a local startup bootstrap so `shared` resolves when launched from its own folder.
-- Both backend services share the frontend CORS allowlist via `OPSPULSE_CORS_ORIGINS`.
+- Both backend services share the frontend CORS allowlist via `SEVLENS_CORS_ORIGINS`.
 - The RAG service uses local markdown and JSON mock data, with Chroma as the vector-store option for retrieval.
 - Local LLM testing uses Ollama by default through its native `/api/chat` endpoint and the `/api` base URL.
 - The local Ollama timeout is intentionally generous so the larger RAG prompt has time to finish.
@@ -100,5 +100,6 @@ This document is the source of truth for the V1 rollout plan, current stage, wha
 - **Stage 5 progress:** The sidebar now sits outside the main content container as a fixed page-edge rail.
 - **Stage 5 progress:** The header icon controls are now transparent wall-mounted buttons instead of card-like toggles.
 - **Stage 5 progress:** Dashboard charts now use multi-color palettes with a heatmap-like feel instead of a single monochrome accent.
+- **Closure note:** V1 is frozen as the baseline reference for the V2 handoff.
 - **Design fixes:** Backend services are FastAPI; manual testing is the default; tracker overrides the design doc when they differ.
-- **Next step after approval:** Begin whatever comes next after Stage 5, or refine the design if a follow-on stage is added.
+- **Next step after approval:** Begin V2 Stage 1 implementation from the V2 tracker.

@@ -1,6 +1,6 @@
 # RAG Service
 
-FastAPI-based incident analysis and recommendation service for OpsPulse.
+FastAPI-based incident analysis and recommendation service for SevLens.
 
 ## Purpose
 
@@ -8,8 +8,8 @@ This service loads mock operational context, retrieves supporting docs, and prod
 
 ## Source of Truth
 
-- Active implementation plan: `OPSPULSE_V2_STAGE_TRACKER.md`
-- Closed V1 reference: `OPSPULSE_V1_STAGE_TRACKER.md`
+- Active implementation plan: `SEVLENS_V2_STAGE_TRACKER.md`
+- Closed V1 reference: `SEVLENS_V1_STAGE_TRACKER.md`
 
 ## Local setup
 
@@ -17,7 +17,9 @@ From `rag-service/`:
 
 1. Create or activate the service virtualenv.
 2. Install dependencies with `pip install -r requirements.txt`.
-3. Run the service with `uvicorn app.main:app --reload`.
+3. Start Redis and OpenSearch locally.
+4. Run the API with `uvicorn app.main:app --reload`.
+5. Run the worker with `python -m app.worker` in a separate terminal if you want async processing.
 
 Run the command from inside `rag-service/`; no repo-root launch or `PYTHONPATH` setup is required.
 
@@ -36,5 +38,9 @@ If the first local generation is slow, increase `RAG_LLM_TIMEOUT_SECONDS` or war
 ## Notes
 
 - The service is FastAPI-based and runs independently from its own virtualenv.
-- It uses local markdown/JSON mock data and supports Ollama for local testing.
-- V2 will shift the analysis trigger path to async queue consumption.
+- The code is split into `app/api/` for routes, `app/core/` for runtime bootstrap, and the existing service modules for analysis, retrieval, queueing, and storage.
+- It uses local markdown mock data and seeds scenario log evidence into OpenSearch on startup.
+- In V2 Stage 6, the worker still consumes `SEVLENS_ANALYSIS_REQUEST_STREAM` and now uses named internal tools for log search, metrics, deployment, service catalog, runbook, and RCA context.
+- The synchronous `/analyze` endpoint remains available for the local compatibility path and for direct analysis testing.
+- Direct `/analyze` requests now need `scenario_id` so the service can fetch the matching OpenSearch log evidence.
+- End-to-end V2 handoff docs live in `docs/v2-architecture.md`, `docs/v2-demo-script.md`, `docs/v2-manual-checklist.md`, and `docs/v2-known-limitations-and-v3-plan.md`.

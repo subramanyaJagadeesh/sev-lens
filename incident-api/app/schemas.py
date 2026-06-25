@@ -46,11 +46,37 @@ class IncidentDecisionResponse(BaseModel):
     created_at: datetime
 
 
+class IncidentAnalysisRunResponse(BaseModel):
+    analysis_run_id: str
+    incident_id: str
+    scenario_id: str
+    scenario_type: str
+    trigger_type: str
+    status: str
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    analysis_latency_ms: int | None = None
+    retrieved_document_count: int = 0
+    expected_document_hit_rate: float = 0.0
+    evidence_count: int = 0
+    recommended_action_count: int = 0
+    confidence_value: str | None = None
+    human_decision_outcome: str | None = None
+    expected_evidence_signals: list[str] = Field(default_factory=list)
+    expected_recommendation_direction: str = ""
+    recommendation: IncidentRecommendationResponse | None = None
+    analysis_events: list[IncidentEventResponse] = Field(default_factory=list)
+
+
 class IncidentSummaryResponse(BaseModel):
     incident_id: str
     service_name: str
     severity: str
     symptom: str
+    metric_name: str | None = None
+    metric_value: str | None = None
+    threshold_value: str | None = None
     status: IncidentStatus
     created_at: datetime
     updated_at: datetime
@@ -63,6 +89,8 @@ class IncidentDetailResponse(BaseModel):
     events: list[IncidentEventResponse]
     recommendation: IncidentRecommendationResponse | None = None
     decision: IncidentDecisionResponse | None = None
+    analysis_run: IncidentAnalysisRunResponse | None = None
+    analysis_runs: list[IncidentAnalysisRunResponse] = Field(default_factory=list)
 
 
 class IncidentResponse(BaseModel):
@@ -70,6 +98,9 @@ class IncidentResponse(BaseModel):
     service_name: str
     severity: str
     symptom: str
+    metric_name: str | None = None
+    metric_value: str | None = None
+    threshold_value: str | None = None
     status: IncidentStatus
     created_at: datetime
     updated_at: datetime

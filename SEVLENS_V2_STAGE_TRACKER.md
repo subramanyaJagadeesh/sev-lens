@@ -1,18 +1,18 @@
-# OpsPulse V2 Stage Tracker
+# SevLens V2 Stage Tracker
 
 This document is the source of truth for the V2 rollout plan, current stage, what has been implemented, what comes next, and any design fixes we agree on along the way.
 
 ## Current State
 
-* **Current stage:** V2 Stage 0
-* **Implementation status:** Not started
+* **Current stage:** V2 complete
+* **Implementation status:** V2 complete
 * **V1 status:** Complete
 * **Main V1 limitation:** Incident analysis is still triggered synchronously when a mock incident is created.
-* **V2 direction:** Make OpsPulse truly event-driven first, then add local observability-style log search and richer incident scenarios.
+* **V2 direction:** Make SevLens truly event-driven first, then add local observability-style log search and richer incident scenarios.
 
 ## V2 Goal
 
-V2 should evolve OpsPulse from a synchronous mock incident assistant into an asynchronous event-driven incident analysis system.
+V2 should evolve SevLens from a synchronous mock incident assistant into an asynchronous event-driven incident analysis system.
 
 The target V2 flow is:
 
@@ -40,14 +40,19 @@ V2 should also introduce local OpenSearch-backed log search, but only after the 
 * OpenSearch should simulate ELK-style log search locally.
 * V2 should keep mock metrics and deployment data simple.
 * V2 should support multiple incident scenarios.
+* The seeded scenario catalog now exposes multiple selectable incident types through the shared contract registry and the frontend trigger flow.
 * The frontend should clearly show queued, analyzing, completed, and failed analysis states.
 * Manual testing remains the default validation approach.
+* Terminal analysis events should refresh the incident detail from the API so the UI never shows stale recommendation or status data.
+* Failed analysis should show retry affordances instead of decision controls, and the incidents filter should derive severity choices from seeded contract-backed values.
+* Evaluation metrics are stored per analysis run in SQLite and rendered back in the incident detail flow and dashboard charts.
+* Human approval state should read as decision pending until a decision is stored, and completed analysis timelines should show finished instead of paused.
 
 ---
 
 # V2 Stage 0 — Planning and V1 Baseline Review
 
-**Status:** Proposed
+**Status:** Completed
 
 ## Goal
 
@@ -68,16 +73,23 @@ Confirm the V1 baseline and define the V2 async architecture before making code 
 * Clear async boundary between incident creation and analysis.
 * Decision on Redis Streams as the V2 queue.
 * V1 regression checklist.
+* Closed V1 tracker and updated repo-facing docs to point at V2.
 
 ## Stage 0 exit condition
 
 * We know exactly how to replace the synchronous analysis call with a queued analysis job.
 
+## Stage 0 notes
+
+* V1 is frozen as the closed baseline reference.
+* V2 is now the active rollout track in the main README and service READMEs.
+* Redis Streams remains the recommended queue for Stage 1.
+
 ---
 
 # V2 Stage 1 — Queue-Based Analysis Request Flow
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -100,6 +112,13 @@ Make incident creation non-blocking by publishing an analysis job to a message q
 * UI can show that an incident is waiting for analysis.
 * Existing V1 flow still works behind a fallback flag if needed.
 
+## Stage 1 notes
+
+* Incident creation now writes `QUEUED` and `ANALYSIS_QUEUED` records on the async path.
+* The incident API now publishes an analysis request envelope to Redis Streams before returning.
+* The synchronous compatibility path remains available behind `SEVLENS_SYNC_ANALYSIS_FALLBACK=true`.
+* The frontend now treats queued incidents as a waiting state in the list, detail, and recommendation views.
+
 ## Stage 1 exit condition
 
 * Creating a mock incident no longer waits for RAG analysis to complete.
@@ -108,7 +127,7 @@ Make incident creation non-blocking by publishing an analysis job to a message q
 
 # V2 Stage 2 — Analysis Worker
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -123,6 +142,12 @@ Create a worker that consumes queued analysis jobs and runs the existing RAG pip
 * Worker persists recommendation results.
 * Worker writes analysis timeline events.
 * Worker marks the incident as recommendation ready or failed.
+
+## Stage 2 notes
+
+* The RAG service now runs a dedicated async worker entrypoint that consumes `SEVLENS_ANALYSIS_REQUEST_STREAM`.
+* The worker publishes `ANALYZING`, `RECOMMENDATION_READY`, and `FAILED` result envelopes to `SEVLENS_ANALYSIS_RESULT_STREAM`.
+* The incident API runs a background result consumer that persists recommendations and timeline events into SQLite.
 
 ## Stage 2 deliverables
 
@@ -140,7 +165,7 @@ Create a worker that consumes queued analysis jobs and runs the existing RAG pip
 
 # V2 Stage 3 — Analysis Runs, Retry, and Replay
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -154,6 +179,7 @@ Make analysis attempts trackable and replayable.
 * Add retry for failed analysis.
 * Add replay for completed incidents.
 * Allow the UI to show previous analysis runs.
+* The persisted incident row must retain `metric_name`, `metric_value`, and `threshold_value` so analysis requests can be rebuilt without re-reading the seeded scenario file.
 
 ## Stage 3 deliverables
 
@@ -171,7 +197,7 @@ Make analysis attempts trackable and replayable.
 
 # V2 Stage 4 — Multi-Scenario Incident Support
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -212,7 +238,7 @@ Each scenario should have:
 
 # V2 Stage 5 — Local OpenSearch Log Search
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -241,7 +267,6 @@ Replace the simple JSON log lookup with a local OpenSearch-backed log search sys
 * OpenSearch runs locally.
 * Scenario logs are seeded into OpenSearch.
 * RAG service fetches summarized logs from OpenSearch.
-* JSON log lookup remains available as a fallback.
 * Recommendations cite log summaries as evidence.
 
 ## Stage 5 exit condition
@@ -252,7 +277,7 @@ Replace the simple JSON log lookup with a local OpenSearch-backed log search sys
 
 # V2 Stage 6 — Tool Layer Cleanup
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -279,6 +304,11 @@ This does not need to be a fully autonomous agent yet. The flow can still be cod
 * Tool usage appears in timeline events.
 * Tool failures degrade gracefully.
 
+## Stage 6 notes
+
+* The RAG pipeline now uses named internal tools for log search, metrics, deployments, service catalog, runbooks, and RCAs.
+* The LLM still synthesizes recommendations; the code layer owns tool orchestration and structured context gathering.
+
 ## Stage 6 exit condition
 
 * The RAG pipeline is easier to extend because each context source is isolated behind a tool-like interface.
@@ -287,7 +317,7 @@ This does not need to be a fully autonomous agent yet. The flow can still be cod
 
 # V2 Stage 7 — Evaluation Metrics
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -317,11 +347,16 @@ Track:
 
 * Each analysis run has measurable quality and latency metadata.
 
+## Stage 7 notes
+
+* Each analysis run now persists a lightweight evaluation record alongside the incident data.
+* The incident detail page shows run-level evaluation fields, and the dashboard charts latency and hit-rate trends from completed runs.
+
 ---
 
 # V2 Stage 8 — Frontend V2 Updates
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -346,6 +381,11 @@ Update the UI to make the V2 async and multi-scenario behavior visible.
 * UI shows log evidence and evaluation metrics.
 * UI remains clean and demo-friendly.
 
+## Stage 8 notes
+
+* The incident detail page now supports selecting analysis runs, showing the selected run timeline, and switching the recommendation/evidence/context view with that selection.
+* The dashboard keeps the high-level summary focused while adding V2 latency and evidence-hit-rate charts.
+
 ## Stage 8 exit condition
 
 * V2 can be demoed fully from the frontend without manually inspecting backend logs.
@@ -354,7 +394,7 @@ Update the UI to make the V2 async and multi-scenario behavior visible.
 
 # V2 Stage 9 — End-to-End Polish and Documentation
 
-**Status:** Not Started
+**Status:** Completed
 
 ## Goal
 
@@ -370,6 +410,8 @@ Make V2 stable, explainable, and ready for a demo, blog, or paper direction.
 * Add demo script.
 * Document known limitations.
 * Document V3 plan.
+* Refactor the backend into clearer API/core/runtime layers.
+* Replace the frontend's native dropdowns with a shared custom select component.
 
 ## Stage 9 deliverables
 
@@ -379,10 +421,19 @@ Make V2 stable, explainable, and ready for a demo, blog, or paper direction.
 * Manual test checklist.
 * V2 demo script.
 * Known limitations section.
+* Production-shaped backend folder structure and shared frontend select component.
 
 ## Stage 9 exit condition
 
 * V2 is demo-ready and can be presented as an event-driven incident intelligence system.
+
+## Stage 9 notes
+
+* The incident API now boots through `app/api/app.py` with a thin `app/main.py` wrapper.
+* The RAG service now boots through `app/api/app.py` with a thin `app/main.py` wrapper.
+* Shared dropdowns in the frontend now use a reusable custom select component for scenario, status, severity, and analysis-run selection.
+* The service READMEs now describe the layered API/core bootstrap structure so the repo layout matches the implementation.
+* The Stage 9 handoff docs now include an architecture diagram, demo script, manual checklist, and known-limitations/V3 plan.
 
 ---
 
@@ -433,7 +484,7 @@ V2 is complete when:
 
 # V2 One-Line Pitch
 
-**OpsPulse V2 converts the V1 synchronous incident assistant into a true event-driven incident intelligence system with queued analysis, async workers, replayable runs, multi-scenario support, and local OpenSearch-backed log evidence.**
+**SevLens V2 converts the V1 synchronous incident assistant into a true event-driven incident intelligence system with queued analysis, async workers, replayable runs, multi-scenario support, and local OpenSearch-backed log evidence.**
 
 ---
 

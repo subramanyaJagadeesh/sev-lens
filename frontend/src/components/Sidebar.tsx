@@ -8,7 +8,7 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-full flex-col overflow-hidden bg-[color:var(--surface)] p-5">
       <div>
-        <p className="heading-eyebrow text-xs">OpsPulse</p>
+        <p className="heading-eyebrow text-xs">SevLens</p>
         <h2 className="mt-2 text-2xl font-semibold">Incident Console</h2>
         <p className="mt-2 text-sm text-muted">Dashboard metrics, incident browsing, and live incident detail.</p>
       </div>

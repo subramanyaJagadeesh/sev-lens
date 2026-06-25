@@ -1,3 +1,5 @@
+import { Select } from "./forms/Select";
+
 type Props = {
   query: string;
   eventType: string;
@@ -32,33 +34,21 @@ export function EventFilters({
       </label>
       <label className="space-y-2 text-sm">
         <span className="text-subtle">Event type</span>
-        <select
+        <Select
           value={eventType}
-          onChange={(event) => onEventTypeChange(event.target.value)}
-          className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-2 text-strong outline-none transition focus:border-[color:var(--accent)]"
-        >
-          <option value="">All types</option>
-          {eventTypes.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
+          onChange={onEventTypeChange}
+          placeholder="All types"
+          options={eventTypes.map((item) => ({ value: item, label: item }))}
+        />
       </label>
       <label className="space-y-2 text-sm">
         <span className="text-subtle">Service</span>
-        <select
+        <Select
           value={serviceName}
-          onChange={(event) => onServiceNameChange(event.target.value)}
-          className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-soft)] px-4 py-2 text-strong outline-none transition focus:border-[color:var(--accent)]"
-        >
-          <option value="">All services</option>
-          {serviceNames.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
+          onChange={onServiceNameChange}
+          placeholder="All services"
+          options={serviceNames.map((item) => ({ value: item, label: item }))}
+        />
       </label>
     </div>
   );

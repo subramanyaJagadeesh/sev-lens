@@ -1,3 +1,5 @@
+import { formatDecisionLabel } from "../lib/statusLabels";
+
 export type DecisionType = "APPROVE" | "REJECT" | "ESCALATE";
 
 type Props = {
@@ -6,7 +8,6 @@ type Props = {
   editing?: boolean;
   onDecision: (decision: DecisionType) => void;
   onBeginChange?: () => void;
-  onCancelChange?: () => void;
 };
 
 const decisionOptions: Array<{ decision: DecisionType; label: string; className: string }> = [
@@ -15,16 +16,14 @@ const decisionOptions: Array<{ decision: DecisionType; label: string; className:
   { decision: "ESCALATE", label: "Escalate", className: "button-warning" },
 ];
 
-export function DecisionButtons({ disabled, currentDecision = null, editing = false, onDecision, onBeginChange, onCancelChange }: Props) {
-  const availableOptions = editing && currentDecision
-    ? decisionOptions.filter((option) => option.decision !== currentDecision)
-    : decisionOptions;
+export function DecisionButtons({ disabled, currentDecision = null, editing = false, onDecision, onBeginChange }: Props) {
+  const availableOptions = decisionOptions;
 
   return (
     <div className="space-y-4">
       {currentDecision && !editing ? (
         <div className="flex flex-wrap items-center gap-3">
-          <span className="chip px-3 py-1 text-xs">Current decision: {currentDecision}</span>
+          <span className="chip px-3 py-1 text-xs">Current decision: {formatDecisionLabel(currentDecision)}</span>
           {onBeginChange ? (
             <button type="button" disabled={disabled} onClick={onBeginChange} className="button theme-toggle">
               Change decision
@@ -36,13 +35,8 @@ export function DecisionButtons({ disabled, currentDecision = null, editing = fa
       {editing ? (
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted">
-            {currentDecision ? `Choose a replacement decision. ${currentDecision} is hidden.` : "Choose a decision."}
+            {currentDecision ? "Choose a replacement decision." : "Choose a decision."}
           </p>
-          {onCancelChange ? (
-            <button type="button" disabled={disabled} onClick={onCancelChange} className="button theme-toggle">
-              Cancel
-            </button>
-          ) : null}
         </div>
       ) : null}
 

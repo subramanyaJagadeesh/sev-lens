@@ -14,27 +14,50 @@ export function DashboardPage() {
   const { theme } = useTheme();
 
   const eventRecords = useMemo(() => buildEventRecords(Object.values(incidentDetailsById)), [incidentDetailsById]);
+  const analysisRuns = useMemo(
+    () => Object.values(incidentDetailsById).flatMap((detail) => (detail.analysis_run ? [detail.analysis_run] : [])),
+    [incidentDetailsById],
+  );
+  const completedAnalysisRuns = useMemo(
+    () => analysisRuns.filter((run) => run.analysis_latency_ms !== null),
+    [analysisRuns],
+  );
 
   const metrics = useMemo(() => {
     const totalIncidents = incidents.length;
     const totalEvents = eventRecords.length;
     const openIncidents = incidents.filter((incident) => incident.status !== "APPROVED" && incident.status !== "REJECTED").length;
     const recommendationReady = incidents.filter((incident) => incident.recommendation_status === "READY").length;
-    return { totalIncidents, totalEvents, openIncidents, recommendationReady };
-  }, [eventRecords.length, incidents]);
+    const averageLatency =
+      completedAnalysisRuns.length > 0
+        ? Math.round(
+            completedAnalysisRuns.reduce((sum, run) => sum + (run.analysis_latency_ms ?? 0), 0) /
+              completedAnalysisRuns.length,
+          )
+        : 0;
+    const averageHitRate =
+      completedAnalysisRuns.length > 0
+        ? Math.round(
+            (completedAnalysisRuns.reduce((sum, run) => sum + run.expected_document_hit_rate, 0) /
+              completedAnalysisRuns.length) *
+              100,
+          )
+        : 0;
+    return { totalIncidents, totalEvents, openIncidents, recommendationReady, averageLatency, averageHitRate };
+  }, [analysisRuns, completedAnalysisRuns, eventRecords.length, incidents]);
 
   const recentIncidents = useMemo(() => [...incidents].sort(sortByCreatedAtDesc).slice(0, 5), [incidents]);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Charts and the latest incidents from the seeded scenario." />
+      <PageHeader title="Dashboard" description="Charts and the latest incidents across the seeded scenario catalog." />
 
       {error ? <div className="panel panel-danger rounded-2xl p-4">{error}</div> : null}
       {isLoading ? <div className="panel rounded-2xl p-6 text-muted">Loading dashboard…</div> : null}
 
       {!isLoading ? (
         <>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
             <div className="panel rounded-2xl p-4">
               <p className="text-xs uppercase tracking-wide text-subtle">Incidents</p>
               <p className="mt-2 text-3xl font-semibold">{metrics.totalIncidents}</p>
@@ -51,14 +74,24 @@ export function DashboardPage() {
               <p className="text-xs uppercase tracking-wide text-subtle">Ready</p>
               <p className="mt-2 text-3xl font-semibold">{metrics.recommendationReady}</p>
             </div>
+            <div className="panel rounded-2xl p-4">
+              <p className="text-xs uppercase tracking-wide text-subtle">Avg latency</p>
+              <p className="mt-2 text-3xl font-semibold">{metrics.averageLatency}ms</p>
+              <p className="mt-1 text-xs text-muted">Across completed analysis runs</p>
+            </div>
+            <div className="panel rounded-2xl p-4">
+              <p className="text-xs uppercase tracking-wide text-subtle">Hit rate</p>
+              <p className="mt-2 text-3xl font-semibold">{metrics.averageHitRate}%</p>
+              <p className="mt-1 text-xs text-muted">Scenario evidence match rate</p>
+            </div>
           </div>
 
-          <DashboardCharts incidents={incidents} events={eventRecords} theme={theme} />
+          <DashboardCharts incidents={incidents} events={eventRecords} analysisRuns={completedAnalysisRuns} theme={theme} />
 
           <div className="panel rounded-2xl p-5">
             <div className="mb-4">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">Most recent incidents</h2>
-              <p className="mt-1 text-sm text-muted">The latest incidents across the seeded scenario.</p>
+              <p className="mt-1 text-sm text-muted">The latest incidents across the seeded scenarios.</p>
             </div>
             <IncidentList
               incidents={recentIncidents}

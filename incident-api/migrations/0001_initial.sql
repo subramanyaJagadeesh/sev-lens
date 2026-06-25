@@ -14,6 +14,7 @@ CREATE TABLE incidents (
     CONSTRAINT incidents_status_check CHECK (
         status IN (
             'CREATED',
+            'QUEUED',
             'ANALYZING',
             'RECOMMENDATION_READY',
             'APPROVED',
@@ -34,6 +35,7 @@ CREATE TABLE incident_events (
     CONSTRAINT incident_events_type_check CHECK (
         event_type IN (
             'INCIDENT_CREATED',
+            'ANALYSIS_QUEUED',
             'ANALYSIS_STARTED',
             'SEVERITY_CLASSIFIED',
             'LOGS_FETCHED',
@@ -82,3 +84,28 @@ CREATE TABLE incident_decisions (
 CREATE INDEX incident_decisions_incident_id_idx ON incident_decisions (incident_id, created_at DESC);
 CREATE INDEX incident_recommendations_incident_id_idx ON incident_recommendations (incident_id, created_at DESC);
 
+CREATE TABLE incident_analysis_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    incident_id UUID NOT NULL REFERENCES incidents(id),
+    scenario_id VARCHAR(255) NOT NULL,
+    scenario_type VARCHAR(255) NOT NULL,
+    trigger_type VARCHAR(100) NOT NULL,
+    status VARCHAR(100) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    analysis_latency_ms INTEGER,
+    retrieved_document_count INTEGER NOT NULL DEFAULT 0,
+    expected_document_hit_rate DOUBLE PRECISION NOT NULL DEFAULT 0,
+    evidence_count INTEGER NOT NULL DEFAULT 0,
+    recommended_action_count INTEGER NOT NULL DEFAULT 0,
+    confidence_value VARCHAR(50),
+    human_decision_outcome VARCHAR(50),
+    expected_evidence_signals JSONB NOT NULL DEFAULT '[]'::jsonb,
+    expected_recommendation_direction VARCHAR(255) NOT NULL DEFAULT '',
+    CONSTRAINT incident_analysis_runs_status_check CHECK (
+        status IN ('QUEUED', 'ANALYZING', 'RECOMMENDATION_READY', 'FAILED')
+    )
+);
+
+CREATE INDEX incident_analysis_runs_incident_id_idx ON incident_analysis_runs (incident_id, created_at DESC);

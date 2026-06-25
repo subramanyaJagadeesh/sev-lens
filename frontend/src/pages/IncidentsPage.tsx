@@ -1,10 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { fetchContracts } from "../api";
 import { IncidentList } from "../components/IncidentList";
 import { PageHeader } from "../components/PageHeader";
+import { Select } from "../components/forms/Select";
 import { TriggerIncidentButton } from "../components/TriggerIncidentButton";
 import { useIncidentData } from "../contexts/IncidentDataContext";
+import type { ScenarioRecord } from "../contracts/incidentContracts";
 import { sortByCreatedAtDesc } from "../lib/incidentHelpers";
+import { formatStatusLabel } from "../lib/statusLabels";
 
 export function IncidentsPage() {
   const navigate = useNavigate();
@@ -13,6 +17,30 @@ export function IncidentsPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [severityFilter, setSeverityFilter] = useState("ALL");
   const [isTriggering, setIsTriggering] = useState(false);
+  const [scenarioOptions, setScenarioOptions] = useState<ScenarioRecord[]>([]);
+  const [selectedScenarioId, setSelectedScenarioId] = useState("notification-service-kafka-timeout");
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchContracts()
+      .then((contracts) => {
+        if (cancelled) {
+          return;
+        }
+        setScenarioOptions(contracts.incident_scenarios);
+        const defaultScenario = contracts.incident_scenarios.find((scenario) => scenario.is_default);
+        setSelectedScenarioId(defaultScenario?.scenario_id ?? contracts.incident_scenarios[0]?.scenario_id ?? "notification-service-kafka-timeout");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const severityOptions = useMemo(() => {
+    const values = new Set(incidents.map((incident) => incident.severity).filter(Boolean));
+    return ["ALL", ...Array.from(values).sort()];
+  }, [incidents]);
 
   const filteredIncidents = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -40,7 +68,7 @@ export function IncidentsPage() {
   const handleTriggerIncident = async () => {
     setIsTriggering(true);
     try {
-      const created = await triggerIncident();
+      const created = await triggerIncident(selectedScenarioId);
       navigate(`/incidents/${created.incident_id}`);
     } finally {
       setIsTriggering(false);
@@ -52,7 +80,6 @@ export function IncidentsPage() {
       <PageHeader
         title="Incidents"
         description="Search, filter, and open an incident to view its detail page."
-        actions={<TriggerIncidentButton disabled={isTriggering} onTrigger={handleTriggerIncident} />}
       />
 
       {error ? <div className="panel panel-danger rounded-2xl p-4">{error}</div> : null}
@@ -61,6 +88,22 @@ export function IncidentsPage() {
       {!isLoading ? (
         <div className="panel rounded-2xl p-5">
           <div className="mb-4 grid gap-3">
+            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+              <label className="space-y-2 text-sm">
+                <span className="text-subtle">Scenario</span>
+                <Select
+                  value={selectedScenarioId}
+                  onChange={setSelectedScenarioId}
+                  options={scenarioOptions.map((scenario) => ({
+                    value: scenario.scenario_id,
+                    label: scenario.label,
+                  }))}
+                />
+              </label>
+              <div className="flex items-end">
+                <TriggerIncidentButton disabled={isTriggering} onTrigger={handleTriggerIncident} />
+              </div>
+            </div>
             <input
               type="search"
               value={searchTerm}
@@ -71,24 +114,31 @@ export function IncidentsPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-2 text-sm">
                 <span className="text-subtle">Status</span>
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="input">
-                  <option value="ALL">All statuses</option>
-                  <option value="ANALYZING">Analyzing</option>
-                  <option value="RECOMMENDED">Recommended</option>
-                  <option value="APPROVED">Approved</option>
-                  <option value="REJECTED">Rejected</option>
-                  <option value="ESCALATED">Escalated</option>
-                </select>
+                <Select
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  placeholder="All statuses"
+                  options={[
+                    { value: "QUEUED", label: formatStatusLabel("QUEUED") },
+                    { value: "ANALYZING", label: formatStatusLabel("ANALYZING") },
+                    { value: "RECOMMENDATION_READY", label: formatStatusLabel("RECOMMENDATION_READY") },
+                    { value: "APPROVED", label: formatStatusLabel("APPROVED") },
+                    { value: "REJECTED", label: formatStatusLabel("REJECTED") },
+                    { value: "ESCALATED", label: formatStatusLabel("ESCALATED") },
+                  ]}
+                />
               </label>
               <label className="space-y-2 text-sm">
                 <span className="text-subtle">Severity</span>
-                <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} className="input">
-                  <option value="ALL">All severities</option>
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                  <option value="CRITICAL">Critical</option>
-                </select>
+                <Select
+                  value={severityFilter}
+                  onChange={setSeverityFilter}
+                  placeholder="All severities"
+                  options={severityOptions.filter((severity) => severity !== "ALL").map((severity) => ({
+                    value: severity,
+                    label: severity,
+                  }))}
+                />
               </label>
             </div>
           </div>

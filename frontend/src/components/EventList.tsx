@@ -1,4 +1,5 @@
 import type { EventRecord } from "../contracts/eventView";
+import { formatStatusLabel } from "../lib/statusLabels";
 
 type Props = {
   events: EventRecord[];
@@ -28,7 +29,7 @@ export function EventList({ events, selectedEventId, onSelectEvent }: Props) {
               <span className="chip-accent px-3 py-1 text-xs">{event.event_type}</span>
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-subtle">
-              <span>{event.incident_status}</span>
+              <span>{formatStatusLabel(event.incident_status)}</span>
               <span>{new Date(event.created_at).toLocaleString()}</span>
             </div>
           </button>

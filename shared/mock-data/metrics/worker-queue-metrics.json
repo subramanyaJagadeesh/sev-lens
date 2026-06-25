@@ -1,0 +1,21 @@
+{
+  "service": "worker-queue",
+  "window": "last_45_minutes",
+  "metrics": {
+    "queue_depth": {
+      "before": "420",
+      "current": "6800",
+      "threshold": "1000"
+    },
+    "job_latency": {
+      "before": "75s",
+      "current": "620s",
+      "threshold": "180s"
+    },
+    "failure_rate": {
+      "before": "0.8%",
+      "current": "5%",
+      "threshold": "2%"
+    }
+  }
+}

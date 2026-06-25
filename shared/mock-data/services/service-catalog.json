@@ -24,6 +24,31 @@
     "runbooks": [
       "docs/runbooks/database-connection-pool-runbook.md"
     ]
+  },
+  {
+    "service_name": "api-gateway",
+    "owner_team": "Edge Platform",
+    "slack_channel": "#ops-edge",
+    "criticality": "high",
+    "dependencies": [
+      "auth-service",
+      "notification-service"
+    ],
+    "runbooks": [
+      "docs/runbooks/api-gateway-latency-runbook.md"
+    ]
+  },
+  {
+    "service_name": "worker-queue",
+    "owner_team": "Background Jobs",
+    "slack_channel": "#ops-workers",
+    "criticality": "medium",
+    "dependencies": [
+      "redis",
+      "database-service"
+    ],
+    "runbooks": [
+      "docs/runbooks/worker-queue-backlog-runbook.md"
+    ]
   }
 ]
-

@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  getIncident,
   listIncidentDetails,
   postDecision,
+  retryIncidentAnalysis,
   triggerMockIncident,
 } from "../api";
 import type { IncidentDetail, IncidentEvent, IncidentSummary } from "../contracts/incidentContracts";
+import { sortByCreatedAtDesc } from "../lib/incidentHelpers";
 
 type IncidentDataContextValue = {
   incidents: IncidentSummary[];
@@ -12,8 +15,9 @@ type IncidentDataContextValue = {
   isLoading: boolean;
   error: string | null;
   refreshIncidents: (preferredIncidentId?: string) => Promise<void>;
-  triggerIncident: () => Promise<IncidentSummary>;
+  triggerIncident: (scenarioId: string) => Promise<IncidentSummary>;
   submitDecision: (incidentId: string, decision: "APPROVE" | "REJECT" | "ESCALATE") => Promise<void>;
+  retryAnalysis: (incidentId: string) => Promise<void>;
   mergeStreamEvent: (event: IncidentEvent) => void;
   getIncidentDetail: (incidentId: string | null | undefined) => IncidentDetail | null;
   getIncidentSummary: (incidentId: string | null | undefined) => IncidentSummary | null;
@@ -29,6 +33,23 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const refreshIncidents = useCallback(async (preferredIncidentId?: string) => {
+    if (preferredIncidentId) {
+      const nextDetail = await getIncident(preferredIncidentId);
+      setIncidentDetailsById((current) => ({
+        ...current,
+        [preferredIncidentId]: nextDetail,
+      }));
+      setIncidents((current) => {
+        const nextSummary = nextDetail.incident;
+        const nextIncidents = current.some((incident) => incident.incident_id === preferredIncidentId)
+          ? current.map((incident) => (incident.incident_id === preferredIncidentId ? nextSummary : incident))
+          : [...current, nextSummary];
+        return [...nextIncidents].sort(sortByCreatedAtDesc);
+      });
+      setError(null);
+      return;
+    }
+
     const nextDetails = await listIncidentDetails();
     const nextIncidents = nextDetails.map((detail) => detail.incident);
     const nextIncidentDetailsById = Object.fromEntries(
@@ -65,8 +86,8 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshIncidents]);
 
-  const triggerIncident = useCallback(async () => {
-    const created = await triggerMockIncident();
+  const triggerIncident = useCallback(async (scenarioId: string) => {
+    const created = await triggerMockIncident(scenarioId);
     await refreshIncidents(created.incident_id);
     return created;
   }, [refreshIncidents]);
@@ -74,6 +95,14 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
   const submitDecision = useCallback(
     async (incidentId: string, decision: "APPROVE" | "REJECT" | "ESCALATE") => {
       await postDecision(incidentId, decision, "demo-user approved from dashboard");
+      await refreshIncidents(incidentId);
+    },
+    [refreshIncidents],
+  );
+
+  const retryAnalysis = useCallback(
+    async (incidentId: string) => {
+      await retryIncidentAnalysis(incidentId);
       await refreshIncidents(incidentId);
     },
     [refreshIncidents],
@@ -101,12 +130,24 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
       };
     });
 
+    if (
+      nextEvent.event_type === "ANALYSIS_QUEUED" ||
+      nextEvent.event_type === "ANALYSIS_STARTED" ||
+      nextEvent.event_type === "RECOMMENDATION_GENERATED" ||
+      nextEvent.event_type === "ANALYSIS_FAILED" ||
+      nextEvent.event_type === "HUMAN_APPROVED" ||
+      nextEvent.event_type === "HUMAN_REJECTED" ||
+      nextEvent.event_type === "HUMAN_ESCALATED"
+    ) {
+      void refreshIncidents(nextEvent.incident_id).catch(() => undefined);
+    }
+
     setIncidents((current) =>
       current.map((incident) =>
         incident.incident_id === nextEvent.incident_id ? { ...incident, updated_at: nextEvent.created_at } : incident,
       ),
     );
-  }, []);
+  }, [refreshIncidents]);
 
   const value = useMemo<IncidentDataContextValue>(
     () => ({
@@ -117,13 +158,24 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
       refreshIncidents,
       triggerIncident,
       submitDecision,
+      retryAnalysis,
       mergeStreamEvent,
       getIncidentDetail: (incidentId) => (incidentId ? incidentDetailsById[incidentId] ?? null : null),
       getIncidentSummary: (incidentId) =>
         incidentId ? incidents.find((incident) => incident.incident_id === incidentId) ?? null : null,
       setError,
     }),
-    [error, incidents, incidentDetailsById, isLoading, mergeStreamEvent, refreshIncidents, submitDecision, triggerIncident],
+    [
+      error,
+      incidents,
+      incidentDetailsById,
+      isLoading,
+      mergeStreamEvent,
+      refreshIncidents,
+      retryAnalysis,
+      submitDecision,
+      triggerIncident,
+    ],
   );
 
   return <IncidentDataContext.Provider value={value}>{children}</IncidentDataContext.Provider>;

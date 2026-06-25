@@ -49,7 +49,7 @@ class KnowledgeBase:
 
     def _build_chroma_collection(self):  # pragma: no cover - optional dependency path
         client = chromadb.EphemeralClient()
-        return client.get_or_create_collection("opspulse-rag")
+        return client.get_or_create_collection("sevlens-rag")
 
     def _ingest_into_chroma(self) -> None:  # pragma: no cover - optional dependency path
         for index, chunk in enumerate(self._chunks):
@@ -79,9 +79,15 @@ class KnowledgeBase:
             score += 4
         return float(score)
 
-    def search(self, query: str, top_k: int = 5, service_name: str | None = None) -> list[RetrievedDocumentChunk]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        service_name: str | None = None,
+        doc_types: list[str] | None = None,
+    ) -> list[RetrievedDocumentChunk]:
         if self._collection is not None:  # pragma: no cover - optional dependency path
-            results = self._collection.query(query_texts=[query], n_results=top_k)
+            results = self._collection.query(query_texts=[query], n_results=max(top_k * 4, top_k))
             documents = results.get("documents", [[]])[0]
             metadatas = results.get("metadatas", [[]])[0]
             distances = results.get("distances", [[]])[0]
@@ -100,12 +106,20 @@ class KnowledgeBase:
                         score=float(1.0 / (1.0 + (distances[index] if distances else index))),
                     )
                 )
-            return [chunk for chunk in retrieved if not service_name or chunk.service in (None, "", service_name)][:top_k]
+            filtered = [
+                chunk
+                for chunk in retrieved
+                if (not service_name or chunk.service in (None, "", service_name))
+                and (not doc_types or chunk.doc_type in doc_types)
+            ]
+            return filtered[:top_k]
 
         query_tokens = {token.strip(".,:;!?").lower() for token in query.split() if token.strip()}
         ranked: list[tuple[float, IndexedChunk]] = []
         for chunk in self._chunks:
             if service_name and chunk.service and chunk.service != service_name:
+                continue
+            if doc_types and chunk.doc_type not in doc_types:
                 continue
             score = self._score_chunk(query_tokens, chunk)
             if score > 0:
@@ -134,6 +148,7 @@ def format_context_for_query(
     metric_value: str | None,
     threshold_value: str | None,
     deployment_summary: str | None,
+    service_profile_summary: str | None = None,
 ) -> str:
     parts = [
         f"Service: {service_name}",
@@ -144,6 +159,7 @@ def format_context_for_query(
         parts.append(f"Metric: {metric_name} is {metric_value} versus threshold {threshold_value}")
     if deployment_summary:
         parts.append(f"Recent deployment context: {deployment_summary}")
+    if service_profile_summary:
+        parts.append(f"Service catalog context: {service_profile_summary}")
     parts.append("Need: relevant runbooks, similar RCAs, and remediation guidance")
     return "\n".join(parts)
-
