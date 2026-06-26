@@ -4,8 +4,14 @@ export function getDefaultAnalysisRunId(runs: IncidentAnalysisRun[]) {
   if (!runs.length) {
     return null;
   }
-  const completedRun = runs.find((run) => run.completed_at || run.status === "RECOMMENDATION_READY" || run.status === "FAILED");
-  return completedRun?.analysis_run_id ?? runs[0].analysis_run_id;
+  const latestRun = runs[runs.length - 1];
+  if (latestRun.status === "QUEUED" || latestRun.status === "ANALYZING") {
+    return latestRun.analysis_run_id;
+  }
+  const completedRun = [...runs]
+    .reverse()
+    .find((run) => run.completed_at || run.status === "RECOMMENDATION_READY" || run.status === "FAILED");
+  return completedRun?.analysis_run_id ?? latestRun.analysis_run_id;
 }
 
 export function getSelectedAnalysisRun(runs: IncidentAnalysisRun[], selectedRunId: string | null | undefined) {
@@ -23,7 +29,10 @@ export function getRunRecommendation(run: IncidentAnalysisRun | null | undefined
 }
 
 export function getRunEvents(run: IncidentAnalysisRun | null | undefined, fallbackEvents: IncidentEvent[]) {
-  return run?.analysis_events?.length ? run.analysis_events : fallbackEvents;
+  if (!run) {
+    return fallbackEvents;
+  }
+  return run.analysis_events ?? [];
 }
 
 export function getRawModelOutput(run: IncidentAnalysisRun | null | undefined) {
@@ -37,4 +46,13 @@ export function getOperationalContext(run: IncidentAnalysisRun | null | undefine
   }
   const context = (raw as Record<string, unknown>).operational_context;
   return context && typeof context === "object" ? (context as Record<string, unknown>) : null;
+}
+
+export function getRcaMatches(run: IncidentAnalysisRun | null | undefined) {
+  const context = getOperationalContext(run);
+  if (!context) {
+    return [];
+  }
+  const matches = context.rca_matches;
+  return Array.isArray(matches) ? (matches as Array<Record<string, unknown>>) : [];
 }

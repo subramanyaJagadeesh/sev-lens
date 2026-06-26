@@ -18,17 +18,6 @@ function countBy<T>(items: T[], keyGetter: (item: T) => string) {
   }, {});
 }
 
-function averageBy<T>(items: T[], keyGetter: (item: T) => string, valueGetter: (item: T) => number) {
-  return items.reduce<Record<string, { sum: number; count: number }>>((accumulator, item) => {
-    const key = keyGetter(item);
-    const bucket = accumulator[key] ?? { sum: 0, count: 0 };
-    bucket.sum += valueGetter(item);
-    bucket.count += 1;
-    accumulator[key] = bucket;
-    return accumulator;
-  }, {});
-}
-
 function chartColors(theme: "light" | "dark") {
   return theme === "light"
     ? ["#0f766e", "#2563eb", "#7c3aed", "#ea580c", "#be123c", "#ca8a04", "#16a34a"]
@@ -83,11 +72,10 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
   const incidentStatusCounts = countBy(incidents, (incident) => incident.status);
   const eventTypeCounts = countBy(events, (event) => event.event_type);
   const eventCountsByIncident = countBy(events, (event) => event.incident_id);
-  const hitRateByScenario = averageBy(analysisRuns, (run) => run.scenario_type, (run) => run.expected_document_hit_rate);
 
   const incidentStatusOptions = {
     ...commonOptions(theme),
-    chart: { ...commonOptions(theme).chart, type: "pie" as const },
+    chart: { ...commonOptions(theme).chart, type: "pie" as const, height: 300 },
     tooltip: {
       ...commonOptions(theme).tooltip,
       pointFormat: "<b>{point.y}</b> incidents",
@@ -115,7 +103,7 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
 
   const eventTypeOptions = {
     ...commonOptions(theme),
-    chart: { ...commonOptions(theme).chart, type: "column" as const },
+    chart: { ...commonOptions(theme).chart, type: "column" as const, height: 300 },
     xAxis: {
       ...commonOptions(theme).xAxis,
       categories: Object.keys(eventTypeCounts),
@@ -138,7 +126,7 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
 
   const eventCountOptions = {
     ...commonOptions(theme),
-    chart: { ...commonOptions(theme).chart, type: "bar" as const },
+    chart: { ...commonOptions(theme).chart, type: "bar" as const, height: 300 },
     xAxis: {
       ...commonOptions(theme).xAxis,
       categories: incidents.map((incident) => incident.service_name),
@@ -161,7 +149,7 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
 
   const evaluationLatencyOptions = {
     ...commonOptions(theme),
-    chart: { ...commonOptions(theme).chart, type: "bar" as const },
+    chart: { ...commonOptions(theme).chart, type: "bar" as const, height: 300 },
     xAxis: {
       ...commonOptions(theme).xAxis,
       categories: analysisRuns.map((run) => run.scenario_type),
@@ -182,32 +170,9 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
     ],
   };
 
-  const evaluationHitRateOptions = {
-    ...commonOptions(theme),
-    chart: { ...commonOptions(theme).chart, type: "column" as const },
-    xAxis: {
-      ...commonOptions(theme).xAxis,
-      categories: Object.keys(hitRateByScenario),
-    },
-    tooltip: {
-      ...commonOptions(theme).tooltip,
-      pointFormat: "<b>{point.y}%</b> hit rate",
-    },
-    colors: heatmapColors(theme),
-    series: [
-      {
-        type: "column" as const,
-        data: Object.values(hitRateByScenario).map((bucket, index) => ({
-          y: Math.round((bucket.sum / bucket.count) * 100),
-          color: heatmapColors(theme)[index % heatmapColors(theme).length],
-        })),
-      },
-    ],
-  };
-
   return (
-    <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-5">
-      <div className="panel rounded-2xl p-5">
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div className="panel rounded-2xl p-5 h-full">
         <div className="mb-4">
           <h3 className="text-lg font-semibold">Incident status mix</h3>
           <p className="text-sm text-muted">Current lifecycle spread across all tracked incidents.</p>
@@ -215,7 +180,7 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
         <HighchartsReact highcharts={Highcharts} options={incidentStatusOptions} />
       </div>
 
-      <div className="panel rounded-2xl p-5">
+      <div className="panel rounded-2xl p-5 h-full">
         <div className="mb-4">
           <h3 className="text-lg font-semibold">Event volume by type</h3>
           <p className="text-sm text-muted">Which audit events are happening most often.</p>
@@ -223,7 +188,7 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
         <HighchartsReact highcharts={Highcharts} options={eventTypeOptions} />
       </div>
 
-      <div className="panel rounded-2xl p-5">
+      <div className="panel rounded-2xl p-5 h-full">
         <div className="mb-4">
           <h3 className="text-lg font-semibold">Events per incident</h3>
           <p className="text-sm text-muted">How much activity each incident has accumulated.</p>
@@ -231,20 +196,12 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
         <HighchartsReact highcharts={Highcharts} options={eventCountOptions} />
       </div>
 
-      <div className="panel rounded-2xl p-5">
+      <div className="panel rounded-2xl p-5 h-full">
         <div className="mb-4">
           <h3 className="text-lg font-semibold">Analysis latency</h3>
           <p className="text-sm text-muted">Completed run timing across scenario types.</p>
         </div>
         <HighchartsReact highcharts={Highcharts} options={evaluationLatencyOptions} />
-      </div>
-
-      <div className="panel rounded-2xl p-5">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold">Evidence hit rate</h3>
-          <p className="text-sm text-muted">Scenario-level retrieval quality across completed runs.</p>
-        </div>
-        <HighchartsReact highcharts={Highcharts} options={evaluationHitRateOptions} />
       </div>
     </div>
   );

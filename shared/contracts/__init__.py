@@ -9,3 +9,5 @@ from .incident_contracts import (
     IncidentStatus,
 )
 from .analysis_contracts import AnalysisRequestEnvelope, AnalysisResultEnvelope
+from .knowledge_contracts import KnowledgeChunk, KnowledgeDocument, KnowledgeRetrievalResult
+from .rca_contracts import RcaFeedbackRecord, RcaMemoryMatch, RcaMemoryRecord

@@ -1,0 +1,30 @@
+{
+  "service_name": "notification-service",
+  "severity": "P2",
+  "symptoms": [
+    "Kafka timeout exceptions",
+    "consumer lag growth",
+    "elevated notification delivery latency"
+  ],
+  "root_cause": "A retry timeout change and smaller consumer batch size reduced throughput while lag increased faster than consumers could drain it.",
+  "resolution": "Increase consumer capacity, restore throughput, and verify lag and timeout behavior after mitigation.",
+  "prevention_items": [
+    "Tune retry and poll timeout settings together",
+    "Review consumer batch size before deployment",
+    "Monitor lag growth against throughput during canary rollout"
+  ],
+  "related_errors": [
+    "KafkaTimeoutException",
+    "consumer lag"
+  ],
+  "related_dependencies": [
+    "Kafka",
+    "notification-events"
+  ],
+  "incident_date": "2026-05-12",
+  "tags": [
+    "kafka",
+    "timeouts",
+    "notifications"
+  ]
+}

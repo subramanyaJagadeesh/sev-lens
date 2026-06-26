@@ -5,6 +5,14 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = BASE_DIR.parent
+RAG_DATA_DIR = BASE_DIR / "data"
+KNOWLEDGE_DATA_DIR = RAG_DATA_DIR / "knowledge"
+KNOWLEDGE_DB_PATH = Path(
+    os.getenv("SEVLENS_KNOWLEDGE_DB_PATH", str(KNOWLEDGE_DATA_DIR / "knowledge.sqlite3"))
+)
+KNOWLEDGE_CHROMA_PATH = Path(
+    os.getenv("SEVLENS_KNOWLEDGE_CHROMA_PATH", str(KNOWLEDGE_DATA_DIR / "chroma"))
+)
 SHARED_DIR = PROJECT_ROOT / "shared"
 DOCS_DIR = PROJECT_ROOT / "docs"
 MOCK_DATA_DIR = SHARED_DIR / "mock-data"
@@ -37,6 +45,8 @@ LLM_BASE_URL = os.getenv(
 LLM_API_KEY = os.getenv("RAG_LLM_API_KEY", "ollama" if LLM_PROVIDER == "ollama" else "")
 LLM_MODEL = os.getenv("RAG_LLM_MODEL", "qwen3.5:4b" if LLM_PROVIDER == "ollama" else "gpt-4.1-mini")
 LLM_TIMEOUT_SECONDS = float(os.getenv("RAG_LLM_TIMEOUT_SECONDS", "300"))
+KNOWLEDGE_BACKEND = os.getenv("KNOWLEDGE_BACKEND", os.getenv("SEVLENS_KNOWLEDGE_BACKEND", "local")).lower()
+EMBEDDING_PROVIDER = os.getenv("SEVLENS_EMBEDDING_PROVIDER", "hashing").lower()
 REDIS_URL = os.getenv("SEVLENS_REDIS_URL", "redis://localhost:6379/0")
 ANALYSIS_REQUEST_STREAM = os.getenv("SEVLENS_ANALYSIS_REQUEST_STREAM", "sevlens:analysis:requests")
 ANALYSIS_REQUEST_GROUP = os.getenv("SEVLENS_ANALYSIS_REQUEST_GROUP", "sevlens:analysis:requests:rag-worker")

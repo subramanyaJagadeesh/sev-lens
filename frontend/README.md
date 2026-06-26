@@ -1,24 +1,48 @@
-# Frontend
+# SevLens Frontend
 
-React dashboard for SevLens.
+This package contains the React dashboard and incident console for SevLens.
 
-## Purpose
+## What it does
 
-This app provides the incident dashboard, incidents list, and incident detail views for the current V2 track.
+- shows the incident dashboard and seeded trend charts
+- lists incidents and opens incident detail views
+- streams incident timeline updates over SSE
+- supports decisions, retries, and analysis run selection
+- exposes the Knowledge Base and RCA Memory screens
 
-## Source of Truth
+## Requirements
 
-- Active implementation plan: `SEVLENS_V2_STAGE_TRACKER.md`
-- Closed V1 reference: `SEVLENS_V1_STAGE_TRACKER.md`
+- Node.js 20+
+- npm
 
-## Local Development
+## Install
 
 From `frontend/`:
 
-1. Install dependencies.
-2. Run the dev server with Vite.
-3. Use the configured Node 20 toolchain for builds.
+```bash
+npm install
+```
 
-The frontend uses React Router, context-based theme/layout/data state, and talks to the local incident API.
-In V2 Stage 4 it includes a scenario selector for creating the seeded incidents and still shows queued incidents immediately while analysis is waiting on the Redis-backed async flow.
-In V2 Stage 9 the shared dropdowns were replaced with a reusable custom select component so the dashboard, filters, and analysis-run controls share the same styling and behavior.
+## Run locally
+
+```bash
+npm run dev
+```
+
+The dev server expects the backend services to be running:
+
+- `VITE_INCIDENT_API_BASE_URL` defaults to `http://localhost:8000`
+- `VITE_RAG_API_BASE_URL` defaults to `http://localhost:8001`
+
+## Build
+
+```bash
+npm run build
+```
+
+## Notes
+
+- The app uses React Router, shared contexts for layout/theme/data, and a reusable custom select component.
+- The sidebar is collapsible and the page header includes shared back/theme controls.
+- The frontend is intentionally data-driven so it can reuse the same incident and knowledge contracts as the backend services.
+

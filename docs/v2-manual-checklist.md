@@ -15,6 +15,7 @@ Use this checklist to sanity-check the current demo build.
 - Confirm multi-run incidents show the run selector.
 - Confirm the selected run updates the timeline, evidence, and evaluation panels.
 - Confirm retry creates a new run on failed incidents.
+- Confirm RCA matches appear in incident detail and can be marked helpful or not helpful.
 
 ## Timeline and decisions
 

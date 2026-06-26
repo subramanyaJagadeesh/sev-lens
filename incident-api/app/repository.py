@@ -163,7 +163,7 @@ class IncidentRepository:
         }
 
     def _row_to_recommendation(self, row: sqlite3.Row) -> dict:
-        return {
+        recommendation = {
             "incident_id": row["incident_id"],
             "summary": row["summary"],
             "evidence": json.loads(row["evidence"]),
@@ -173,6 +173,21 @@ class IncidentRepository:
             "raw_model_output": json.loads(row["raw_model_output"]) if row["raw_model_output"] else None,
             "created_at": parse_dt(row["created_at"]),
         }
+        raw_model_output = recommendation["raw_model_output"]
+        if isinstance(raw_model_output, dict):
+            for field_name in (
+                "incident_summary",
+                "symptoms",
+                "risk_level",
+                "hypotheses",
+                "source_documents",
+                "similar_rcas",
+                "unsupported_areas",
+                "action_evidence_links",
+            ):
+                if field_name in raw_model_output:
+                    recommendation[field_name] = raw_model_output[field_name]
+        return recommendation
 
     def _row_to_decision(self, row: sqlite3.Row) -> dict:
         return {
@@ -319,6 +334,9 @@ class IncidentRepository:
         # Stage 2 does not generate recommendations yet, but the table is ready for Stage 3.
         recommendation_id = str(uuid4())
         timestamp = iso_now()
+        raw_model_output = recommendation.get("raw_model_output")
+        if raw_model_output is None:
+            raw_model_output = {key: value for key, value in recommendation.items() if key != "raw_model_output"}
         with self._locked(), self._connection:
             self._connection.execute(
                 """
@@ -335,7 +353,7 @@ class IncidentRepository:
                     json.dumps(recommendation["recommended_actions"]),
                     recommendation["confidence"],
                     1 if recommendation.get("requires_human_approval", True) else 0,
-                    json.dumps(recommendation["raw_model_output"]) if recommendation.get("raw_model_output") else None,
+                    json.dumps(raw_model_output) if raw_model_output else None,
                     timestamp,
                 ),
             )
@@ -471,7 +489,7 @@ class IncidentRepository:
         if incident_id is not None:
             query += " WHERE incident_id = ?"
             params = (incident_id,)
-        query += " ORDER BY created_at DESC"
+        query += " ORDER BY created_at ASC"
         with self._locked():
             cursor = self._connection.execute(query, params)
             return [self._row_to_analysis_run(row) for row in cursor.fetchall()]

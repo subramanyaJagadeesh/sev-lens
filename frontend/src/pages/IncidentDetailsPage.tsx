@@ -7,6 +7,7 @@ import { EventDetailPanel } from "../components/EventDetailPanel";
 import { EvaluationPanel } from "../components/EvaluationPanel";
 import { IncidentHeader } from "../components/IncidentHeader";
 import { LogEvidencePanel } from "../components/LogEvidencePanel";
+import { RcaMatchPanel } from "../components/RcaMatchPanel";
 import { PageHeader } from "../components/PageHeader";
 import { RecommendationPanel } from "../components/RecommendationPanel";
 import { useIncidentData } from "../contexts/IncidentDataContext";
@@ -45,14 +46,10 @@ export function IncidentDetailsPage() {
       return;
     }
     setSelectedRunId((current) => {
-      if (
-        current &&
-        analysisRuns.some((run) => run.analysis_run_id === current) &&
-        (!defaultRunId || current === defaultRunId || (analysisRuns.find((run) => run.analysis_run_id === current)?.status ?? "") === "RECOMMENDATION_READY")
-      ) {
+      if (current && analysisRuns.some((run) => run.analysis_run_id === current)) {
         return current;
       }
-      return defaultRunId;
+      return defaultRunId ?? analysisRuns.at(-1)?.analysis_run_id ?? null;
     });
   }, [analysisRuns, defaultRunId]);
 
@@ -133,15 +130,6 @@ export function IncidentDetailsPage() {
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
             <div className="min-w-0 space-y-4">
-              <RecommendationPanel
-                recommendation={selectedRecommendation}
-                queued={isSelectedRunQueued}
-                failed={isSelectedRunFailed}
-                failureMessage={failureMessage}
-              />
-              <LogEvidencePanel analysisRun={selectedRun} />
-              <AnalysisContextPanel analysisRun={selectedRun} />
-
               {isSelectedRunFailed ? (
                 <div className="panel rounded-2xl p-5">
                   <h3 className="mb-3 text-lg font-semibold">Analysis failed</h3>
@@ -184,6 +172,15 @@ export function IncidentDetailsPage() {
                   <p className="text-sm text-muted">Decision actions will appear once the selected run has a recommendation.</p>
                 </div>
               )}
+
+              <RecommendationPanel
+                recommendation={selectedRecommendation}
+                queued={isSelectedRunQueued}
+                failed={isSelectedRunFailed}
+                failureMessage={failureMessage}
+              />
+              <LogEvidencePanel analysisRun={selectedRun} />
+              <RcaMatchPanel incidentId={incidentId} analysisRun={selectedRun} />
             </div>
 
             <div className="min-w-0 space-y-4">
@@ -196,6 +193,8 @@ export function IncidentDetailsPage() {
               <EvaluationPanel analysisRun={selectedRun} />
             </div>
           </div>
+
+          <AnalysisContextPanel analysisRun={selectedRun} />
         </>
       ) : (
         <div className="panel rounded-2xl p-6 text-muted">Loading incident detail…</div>

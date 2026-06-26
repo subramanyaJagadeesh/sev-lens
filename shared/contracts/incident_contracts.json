@@ -13,12 +13,20 @@
     "INCIDENT_CREATED",
     "ANALYSIS_QUEUED",
     "ANALYSIS_STARTED",
+    "INCIDENT_CLASSIFIED",
+    "INVESTIGATION_PLANNED",
+    "CONTEXT_COLLECTED",
     "SEVERITY_CLASSIFIED",
     "LOGS_FETCHED",
     "METRICS_FETCHED",
     "DEPLOYMENT_CHECKED",
     "RUNBOOK_RETRIEVED",
     "RCA_RETRIEVED",
+    "KNOWLEDGE_RETRIEVED",
+    "HYPOTHESIS_GENERATED",
+    "EVIDENCE_VERIFIED",
+    "RECOMMENDATION_PLANNED",
+    "RESPONSE_COMPOSED",
     "RECOMMENDATION_GENERATED",
     "HUMAN_APPROVED",
     "HUMAN_REJECTED",
@@ -97,6 +105,42 @@
     "evidence": ["string"],
     "recommended_actions": ["string"],
     "confidence": "low | medium | high",
-    "requires_human_approval": true
+    "requires_human_approval": true,
+    "incident_summary": "string",
+    "symptoms": ["string"],
+    "risk_level": "low | medium | high",
+    "hypotheses": [
+      {
+        "hypothesis": "string",
+        "confidence": "string",
+        "supporting_signals": ["string"],
+        "evidence_gaps": ["string"]
+      }
+    ],
+    "source_documents": [
+      {
+        "title": "string",
+        "doc_type": "string",
+        "service": "string",
+        "source": "string"
+      }
+    ],
+    "similar_rcas": [
+      {
+        "title": "string",
+        "service_name": "string",
+        "match_explanation": "string",
+        "score": 0.0
+      }
+    ],
+    "unsupported_areas": ["string"],
+    "action_evidence_links": [
+      {
+        "action": "string",
+        "evidence": ["string"],
+        "source_documents": ["string"],
+        "similar_rcas": ["string"]
+      }
+    ]
   }
 }

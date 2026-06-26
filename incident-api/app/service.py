@@ -273,6 +273,12 @@ class IncidentService:
         elif result.analysis_status == "RECOMMENDATION_READY":
             recommendation = result.recommendation
             if recommendation is not None:
+                if result.workflow_state is not None:
+                    raw_model_output = recommendation.get("raw_model_output")
+                    if isinstance(raw_model_output, dict):
+                        raw_model_output.setdefault("workflow_state", result.workflow_state)
+                    else:
+                        recommendation["raw_model_output"] = {"workflow_state": result.workflow_state}
                 self.repository.save_recommendation(result.incident_id, recommendation)
             updated_incident = self.repository.update_incident_status(result.incident_id, IncidentStatus.RECOMMENDATION_READY)
             if latest_run is not None:
