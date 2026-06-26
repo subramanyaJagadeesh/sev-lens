@@ -10,12 +10,14 @@ from .config import DOCS_DIR, MOCK_DATA_DIR, PROJECT_ROOT
 
 @dataclass(frozen=True)
 class LoadedDocument:
+    document_id: str
     source: str
     title: str
     doc_type: str
     service: str | None
     tags: list[str]
     text: str
+    metadata: dict[str, Any]
 
 
 def _load_json(path: Path) -> Any:
@@ -49,35 +51,73 @@ def load_service_metadata(service_name: str) -> dict[str, Any] | None:
 
 
 def load_markdown_documents() -> list[LoadedDocument]:
+    def slugify(value: str) -> str:
+        return "".join(char if char.isalnum() else "-" for char in value.lower()).strip("-")
+
+    def load_sidecar_metadata(path: Path) -> dict[str, Any]:
+        sidecar_path = path.with_suffix(".json")
+        if not sidecar_path.exists():
+            return {}
+        return _load_json(sidecar_path)
+
+    def detect_doc_type(path: Path) -> str:
+        folder = path.parent.name.lower()
+        if folder == "runbooks":
+            return "runbook"
+        if folder == "rcas":
+            return "rca"
+        if folder == "service-docs":
+            return "service_doc"
+        if folder == "architecture-notes":
+            return "architecture_note"
+        if folder == "troubleshooting":
+            return "troubleshooting"
+        if folder == "known-errors":
+            return "known_error"
+        if folder == "sops":
+            return "sop"
+        if folder == "escalation-policies":
+            return "escalation_policy"
+        return folder.replace("-", "_")
+
     def detect_service(path: Path) -> str | None:
-        filename = path.name
-        if "notification" in filename or "kafka" in filename:
+        lowered = " ".join((path.stem, *path.parts)).lower()
+        if "notification" in lowered or "kafka" in lowered:
             return "notification-service"
-        if "database" in filename or "connection" in filename:
+        if "database" in lowered or "connection" in lowered:
             return "database-service"
-        if "gateway" in filename:
+        if "gateway" in lowered:
             return "api-gateway"
-        if "worker" in filename or "queue" in filename:
+        if "worker" in lowered or "queue" in lowered:
             return "worker-queue"
         return None
 
+    def detect_tags(path: Path) -> list[str]:
+        tags = [part.replace("-", " ") for part in path.parts if part not in {"docs", "knowledge"}]
+        tags.append(path.stem.replace("-", " "))
+        return sorted({tag for tag in tags if tag})
+
     documents: list[LoadedDocument] = []
-    for directory, doc_type in ((DOCS_DIR / "runbooks", "runbook"), (DOCS_DIR / "rcas", "rca")):
+    for directory in (DOCS_DIR / "runbooks", DOCS_DIR / "rcas", DOCS_DIR / "knowledge"):
         if not directory.exists():
             continue
-        for path in sorted(directory.glob("*.md")):
+        for path in sorted(directory.rglob("*.md")):
+            if path.name.startswith("v2-"):
+                continue
             text = path.read_text(encoding="utf-8")
             title = text.splitlines()[0].lstrip("# ").strip() if text.splitlines() else path.stem
-            service = detect_service(path)
-            tags = path.stem.replace("-", " ").split()
+            doc_type = detect_doc_type(path)
+            metadata = load_sidecar_metadata(path) if doc_type == "rca" else {}
             documents.append(
                 LoadedDocument(
+                    document_id=slugify(f"{doc_type}-{path.stem}"),
                     source=str(path),
                     title=title or path.stem,
                     doc_type=doc_type,
-                    service=service,
-                    tags=tags,
+                    service=detect_service(path),
+                    tags=detect_tags(path),
                     text=text,
+                    metadata=metadata,
                 )
             )
     return documents

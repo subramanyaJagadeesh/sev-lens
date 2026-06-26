@@ -1,0 +1,30 @@
+{
+  "service_name": "worker-queue",
+  "severity": "P3",
+  "symptoms": [
+    "queue backlog",
+    "worker concurrency reduction",
+    "job latency increase"
+  ],
+  "root_cause": "Concurrency was reduced during maintenance while a downstream dependency slowed job completion.",
+  "resolution": "Restore worker capacity, drain the queue, and monitor job latency against queue depth.",
+  "prevention_items": [
+    "Protect minimum worker concurrency during maintenance",
+    "Track queue depth against processing latency",
+    "Watch downstream dependency health before draining workers"
+  ],
+  "related_errors": [
+    "queue backlog",
+    "worker heartbeat miss"
+  ],
+  "related_dependencies": [
+    "worker-queue",
+    "downstream dependency"
+  ],
+  "incident_date": "2026-06-03",
+  "tags": [
+    "workers",
+    "queue",
+    "backlog"
+  ]
+}

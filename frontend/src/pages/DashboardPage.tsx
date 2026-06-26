@@ -35,29 +35,21 @@ export function DashboardPage() {
               completedAnalysisRuns.length,
           )
         : 0;
-    const averageHitRate =
-      completedAnalysisRuns.length > 0
-        ? Math.round(
-            (completedAnalysisRuns.reduce((sum, run) => sum + run.expected_document_hit_rate, 0) /
-              completedAnalysisRuns.length) *
-              100,
-          )
-        : 0;
-    return { totalIncidents, totalEvents, openIncidents, recommendationReady, averageLatency, averageHitRate };
+    return { totalIncidents, totalEvents, openIncidents, recommendationReady, averageLatency };
   }, [analysisRuns, completedAnalysisRuns, eventRecords.length, incidents]);
 
   const recentIncidents = useMemo(() => [...incidents].sort(sortByCreatedAtDesc).slice(0, 5), [incidents]);
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Charts and the latest incidents across the seeded scenario catalog." />
+      <PageHeader title="Dashboard" description="Live metrics and the latest incidents across the current SevLens scenario catalog." />
 
       {error ? <div className="panel panel-danger rounded-2xl p-4">{error}</div> : null}
       {isLoading ? <div className="panel rounded-2xl p-6 text-muted">Loading dashboard…</div> : null}
 
       {!isLoading ? (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div className="panel rounded-2xl p-4">
               <p className="text-xs uppercase tracking-wide text-subtle">Incidents</p>
               <p className="mt-2 text-3xl font-semibold">{metrics.totalIncidents}</p>
@@ -78,11 +70,6 @@ export function DashboardPage() {
               <p className="text-xs uppercase tracking-wide text-subtle">Avg latency</p>
               <p className="mt-2 text-3xl font-semibold">{metrics.averageLatency}ms</p>
               <p className="mt-1 text-xs text-muted">Across completed analysis runs</p>
-            </div>
-            <div className="panel rounded-2xl p-4">
-              <p className="text-xs uppercase tracking-wide text-subtle">Hit rate</p>
-              <p className="mt-2 text-3xl font-semibold">{metrics.averageHitRate}%</p>
-              <p className="mt-1 text-xs text-muted">Scenario evidence match rate</p>
             </div>
           </div>
 

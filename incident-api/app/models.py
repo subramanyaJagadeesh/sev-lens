@@ -41,6 +41,14 @@ class IncidentRecommendationRecord:
     recommended_actions: list[str]
     confidence: str
     requires_human_approval: bool = True
+    incident_summary: str | None = None
+    symptoms: list[str] = field(default_factory=list)
+    risk_level: str | None = None
+    hypotheses: list[dict[str, Any]] = field(default_factory=list)
+    source_documents: list[dict[str, Any]] = field(default_factory=list)
+    similar_rcas: list[dict[str, Any]] = field(default_factory=list)
+    unsupported_areas: list[str] = field(default_factory=list)
+    action_evidence_links: list[dict[str, Any]] = field(default_factory=list)
     raw_model_output: dict[str, Any] | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -53,4 +61,3 @@ class IncidentDecisionRecord:
     decided_by: str
     note: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-

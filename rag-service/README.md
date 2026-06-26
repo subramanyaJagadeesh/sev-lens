@@ -1,46 +1,70 @@
-# RAG Service
+# SevLens RAG Service
 
-FastAPI-based incident analysis and recommendation service for SevLens.
+This service owns analysis, retrieval, knowledge management, RCA memory, and the worker side of async incident processing.
 
-## Purpose
+## What it does
 
-This service loads mock operational context, retrieves supporting docs, and produces structured analysis and recommendations.
+- runs the analysis API and the background worker
+- retrieves context from the local knowledge base and RCA memory
+- searches OpenSearch for log evidence
+- generates structured recommendations
+- exposes KB and RCA management endpoints
 
-## Source of Truth
+## Requirements
 
-- Active implementation plan: `SEVLENS_V2_STAGE_TRACKER.md`
-- Closed V1 reference: `SEVLENS_V1_STAGE_TRACKER.md`
+- Python 3.12+
+- Redis for async worker communication
+- OpenSearch for log evidence search
+- Optional: Ollama or another OpenAI-compatible LLM provider
 
-## Local setup
+## Install
 
 From `rag-service/`:
 
-1. Create or activate the service virtualenv.
-2. Install dependencies with `pip install -r requirements.txt`.
-3. Start Redis and OpenSearch locally.
-4. Run the API with `uvicorn app.main:app --reload`.
-5. Run the worker with `python -m app.worker` in a separate terminal if you want async processing.
+```bash
+pip install -r requirements.txt
+```
 
-Run the command from inside `rag-service/`; no repo-root launch or `PYTHONPATH` setup is required.
+## Run locally
 
-## Local Ollama setup
+Start the API:
 
-For local testing, copy `rag-service/.env.example` to `.env` and keep:
+```bash
+uvicorn app.main:app --reload
+```
 
-- `RAG_LLM_PROVIDER=ollama`
-- `RAG_LLM_BASE_URL=http://localhost:11434/api`
-- `RAG_LLM_MODEL=qwen3.5:4b`
+Start the worker in a second terminal:
 
-The service uses Ollama's native chat endpoint at `/api/chat`, while OpenAI-compatible providers can still use `/v1/chat/completions`.
+```bash
+python -m app.worker
+```
 
-If the first local generation is slow, increase `RAG_LLM_TIMEOUT_SECONDS` or warm up the model with a quick `curl` request first.
+Run both commands from inside `rag-service/` so the package resolves `shared/` without a repo-root launch.
+
+## Environment variables
+
+### LLM
+
+- `RAG_LLM_PROVIDER` — `ollama` or `openai`
+- `RAG_LLM_BASE_URL` — provider base URL
+- `RAG_LLM_MODEL` — model name
+- `RAG_LLM_TIMEOUT_SECONDS` — request timeout
+
+### Knowledge and embeddings
+
+- `KNOWLEDGE_BACKEND` — `local` or reserved `dify`
+- `SEVLENS_EMBEDDING_PROVIDER` — embedding provider selector
+
+### Infrastructure
+
+- `SEVLENS_REDIS_URL` — Redis connection string
+- `SEVLENS_LOG_INDEX` — OpenSearch index name for log evidence
+- `SEVLENS_KB_DB_PATH` — local SQLite path for KB metadata
 
 ## Notes
 
-- The service is FastAPI-based and runs independently from its own virtualenv.
-- The code is split into `app/api/` for routes, `app/core/` for runtime bootstrap, and the existing service modules for analysis, retrieval, queueing, and storage.
-- It uses local markdown mock data and seeds scenario log evidence into OpenSearch on startup.
-- In V2 Stage 6, the worker still consumes `SEVLENS_ANALYSIS_REQUEST_STREAM` and now uses named internal tools for log search, metrics, deployment, service catalog, runbook, and RCA context.
-- The synchronous `/analyze` endpoint remains available for the local compatibility path and for direct analysis testing.
-- Direct `/analyze` requests now need `scenario_id` so the service can fetch the matching OpenSearch log evidence.
-- End-to-end V2 handoff docs live in `docs/v2-architecture.md`, `docs/v2-demo-script.md`, `docs/v2-manual-checklist.md`, and `docs/v2-known-limitations-and-v3-plan.md`.
+- The service keeps the knowledge backend and embedding provider behind explicit interfaces so the implementation can evolve without changing the API contract.
+- Local knowledge documents and RCAs are persisted; they are not in-memory-only demo data.
+- OpenSearch is the only log search backend for the current V3 flow.
+- The synchronous `/analyze` endpoint remains available for direct testing and compatibility.
+

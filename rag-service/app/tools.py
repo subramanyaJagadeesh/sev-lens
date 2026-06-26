@@ -5,8 +5,8 @@ from typing import Any
 from shared.contracts.incident_contracts import IncidentEventType
 
 from .data_loader import load_metrics, load_recent_deployments, load_service_metadata
+from .knowledge_backend import KnowledgeBackend, create_knowledge_backend, format_context_for_query
 from .opensearch_store import OpenSearchLogStore
-from .retrieval import KnowledgeBase, format_context_for_query
 from .schemas import (
     AnalyzeIncidentRequest,
     AnalysisContextBundle,
@@ -17,8 +17,25 @@ from .schemas import (
 )
 
 
-def _serialize_chunks(chunks: list[RetrievedDocumentChunk]) -> list[dict[str, Any]]:
-    return [chunk.model_dump(mode="json") for chunk in chunks]
+def _to_retrieved_chunk(document: Any) -> RetrievedDocumentChunk:
+    if isinstance(document, RetrievedDocumentChunk):
+        return document
+    return RetrievedDocumentChunk.model_validate(
+        {
+            "source": getattr(document, "source", None) or "",
+            "title": getattr(document, "title", ""),
+            "doc_type": getattr(document, "doc_type", ""),
+            "service": getattr(document, "service", None),
+            "tags": list(getattr(document, "tags", [])),
+            "chunk_index": int(getattr(document, "chunk_index", 0)),
+            "text": getattr(document, "text", ""),
+            "score": float(getattr(document, "score", 0.0)),
+        }
+    )
+
+
+def _serialize_chunks(chunks: list[Any]) -> list[dict[str, Any]]:
+    return [_to_retrieved_chunk(chunk).model_dump(mode="json") for chunk in chunks]
 
 
 class LogSearchTool:
@@ -125,18 +142,24 @@ class ServiceCatalogLookupTool:
 
 
 class RunbookRetrievalTool:
-    def __init__(self, knowledge_base: KnowledgeBase | None = None) -> None:
-        self.knowledge_base = knowledge_base or KnowledgeBase()
+    def __init__(self, knowledge_backend: KnowledgeBackend | None = None) -> None:
+        self.knowledge_backend = knowledge_backend or create_knowledge_backend()
 
     def run(self, request: AnalyzeIncidentRequest, query: str) -> ToolResult:
         try:
-            documents = self.knowledge_base.search(query, top_k=3, service_name=request.service_name, doc_types=["runbook"])
+            documents = self.knowledge_backend.retrieve_by_document_type(
+                document_types=["runbook"],
+                query=query,
+                top_k=3,
+                service_name=request.service_name,
+            )
+            retrieved_documents = [_to_retrieved_chunk(document) for document in documents]
             return ToolResult(
                 tool_name="runbook_retrieval",
                 event_type=IncidentEventType.RUNBOOK_RETRIEVED,
                 status="success",
                 message="Retrieved relevant runbook guidance",
-                payload={"documents": _serialize_chunks(documents), "document_count": len(documents)},
+                payload={"documents": _serialize_chunks(retrieved_documents), "document_count": len(retrieved_documents)},
             )
         except Exception as exc:  # noqa: BLE001
             return ToolResult(
@@ -150,18 +173,48 @@ class RunbookRetrievalTool:
 
 
 class RcaRetrievalTool:
-    def __init__(self, knowledge_base: KnowledgeBase | None = None) -> None:
-        self.knowledge_base = knowledge_base or KnowledgeBase()
+    def __init__(self, knowledge_backend: KnowledgeBackend | None = None) -> None:
+        self.knowledge_backend = knowledge_backend or create_knowledge_backend()
 
     def run(self, request: AnalyzeIncidentRequest, query: str) -> ToolResult:
         try:
-            documents = self.knowledge_base.search(query, top_k=3, service_name=request.service_name, doc_types=["rca"])
+            matches = self.knowledge_backend.search_rca_memories(
+                incident_context={
+                    "service_name": request.service_name,
+                    "severity": request.severity,
+                    "symptom": request.symptom,
+                    "metric_name": request.metric_name,
+                    "metric_value": request.metric_value,
+                    "threshold_value": request.threshold_value,
+                },
+                top_k=3,
+            )
+            retrieved_documents = [
+                RetrievedDocumentChunk(
+                    source=match.source or match.document_id,
+                    title=match.title,
+                    doc_type="rca",
+                    service=match.service_name,
+                    tags=list(match.metadata.get("tags", [])) if isinstance(match.metadata, dict) else [],
+                    chunk_index=int(match.metadata.get("chunk_index", 0)) if isinstance(match.metadata, dict) else 0,
+                    text=(
+                        f"{match.match_explanation}. Root cause: {match.root_cause}. "
+                        f"Resolution: {match.resolution}"
+                    ),
+                    score=match.score,
+                )
+                for match in matches
+            ]
             return ToolResult(
                 tool_name="rca_retrieval",
                 event_type=IncidentEventType.RCA_RETRIEVED,
                 status="success",
                 message="Retrieved similar RCA context",
-                payload={"documents": _serialize_chunks(documents), "document_count": len(documents)},
+                payload={
+                    "documents": _serialize_chunks(retrieved_documents),
+                    "matches": [match.to_dict() for match in matches],
+                    "document_count": len(retrieved_documents),
+                },
             )
         except Exception as exc:  # noqa: BLE001
             return ToolResult(
@@ -169,7 +222,7 @@ class RcaRetrievalTool:
                 event_type=IncidentEventType.RCA_RETRIEVED,
                 status="failed",
                 message="RCA retrieval failed but analysis will continue with partial context",
-                payload={"documents": [], "document_count": 0},
+                payload={"documents": [], "matches": [], "document_count": 0},
                 error=str(exc),
             )
 
@@ -177,17 +230,17 @@ class RcaRetrievalTool:
 class AnalysisToolchain:
     def __init__(
         self,
-        knowledge_base: KnowledgeBase | None = None,
+        knowledge_backend: KnowledgeBackend | None = None,
         log_store: OpenSearchLogStore | None = None,
     ) -> None:
-        self.knowledge_base = knowledge_base or KnowledgeBase()
+        self.knowledge_backend = knowledge_backend or create_knowledge_backend()
         self.log_store = log_store or OpenSearchLogStore()
         self.log_search = LogSearchTool(self.log_store)
         self.metrics_lookup = MetricsLookupTool()
         self.deployment_lookup = DeploymentLookupTool()
         self.service_catalog_lookup = ServiceCatalogLookupTool()
-        self.runbook_retrieval = RunbookRetrievalTool(self.knowledge_base)
-        self.rca_retrieval = RcaRetrievalTool(self.knowledge_base)
+        self.runbook_retrieval = RunbookRetrievalTool(self.knowledge_backend)
+        self.rca_retrieval = RcaRetrievalTool(self.knowledge_backend)
 
     def ensure_ready(self) -> None:
         self.log_store.ensure_seeded()
@@ -238,6 +291,8 @@ class AnalysisToolchain:
         rca_docs = self._extract_documents(rca_result, "documents")
         bundle.context.runbook_chunks = [RetrievedDocumentChunk.model_validate(chunk) for chunk in runbook_docs]
         bundle.context.rca_chunks = [RetrievedDocumentChunk.model_validate(chunk) for chunk in rca_docs]
+        rca_matches = rca_result.payload.get("matches")
+        bundle.context.rca_matches = list(rca_matches) if isinstance(rca_matches, list) else []
         bundle.context.tool_results = bundle.tool_results
         return bundle
 

@@ -65,6 +65,7 @@ class AnalysisResultEnvelope:
     recommendation: dict[str, Any] | None = None
     analysis_events: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
+    workflow_state: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -84,6 +85,7 @@ class AnalysisResultEnvelope:
             recommendation=payload.get("recommendation"),
             analysis_events=payload.get("analysis_events", []),
             error=payload.get("error"),
+            workflow_state=payload.get("workflow_state"),
         )
 
     @classmethod

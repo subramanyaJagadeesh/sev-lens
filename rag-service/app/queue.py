@@ -157,6 +157,7 @@ class RedisAnalysisWorker:
                     analysis_status="RECOMMENDATION_READY",
                     recommendation=analysis_response.recommendation.model_dump(mode="json"),
                     analysis_events=[event.model_dump(mode="json") for event in analysis_response.analysis_events],
+                    workflow_state=analysis_response.workflow_state,
                 )
             )
             await client.xack(self.request_stream, self.request_group, stream_id)

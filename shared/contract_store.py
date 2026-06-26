@@ -140,7 +140,18 @@ def ensure_contract_store() -> None:
             )
         recommendation_schema = seed["recommendation_schema"]
         for index, (field_name, field_value) in enumerate(recommendation_schema.items()):
-            field_type = "boolean" if isinstance(field_value, bool) else "list[string]" if isinstance(field_value, list) else "string"
+            if isinstance(field_value, bool):
+                field_type = "boolean"
+            elif isinstance(field_value, list):
+                if not field_value:
+                    field_type = "list[string]"
+                else:
+                    first_item = field_value[0]
+                    field_type = "list[object]" if isinstance(first_item, dict) else "list[string]"
+            elif isinstance(field_value, dict):
+                field_type = "object"
+            else:
+                field_type = "string"
             connection.execute(
                 """
                 INSERT INTO recommendation_schema_fields (field_name, field_type, required, description)

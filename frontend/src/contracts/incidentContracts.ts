@@ -63,6 +63,14 @@ export type Recommendation = {
   recommended_actions: string[];
   confidence: string;
   requires_human_approval: boolean;
+  incident_summary?: string | null;
+  symptoms?: string[];
+  risk_level?: string | null;
+  hypotheses?: Array<Record<string, unknown>>;
+  source_documents?: Array<Record<string, unknown>>;
+  similar_rcas?: Array<Record<string, unknown>>;
+  unsupported_areas?: string[];
+  action_evidence_links?: Array<Record<string, unknown>>;
   raw_model_output?: Record<string, unknown> | null;
   created_at?: string;
 };

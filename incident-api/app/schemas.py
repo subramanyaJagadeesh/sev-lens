@@ -33,6 +33,14 @@ class IncidentRecommendationResponse(BaseModel):
     recommended_actions: list[str] = Field(default_factory=list)
     confidence: str | None = None
     requires_human_approval: bool = True
+    incident_summary: str | None = None
+    symptoms: list[str] = Field(default_factory=list)
+    risk_level: str | None = None
+    hypotheses: list[dict[str, Any]] = Field(default_factory=list)
+    source_documents: list[dict[str, Any]] = Field(default_factory=list)
+    similar_rcas: list[dict[str, Any]] = Field(default_factory=list)
+    unsupported_areas: list[str] = Field(default_factory=list)
+    action_evidence_links: list[dict[str, Any]] = Field(default_factory=list)
     raw_model_output: dict[str, Any] | None = None
     created_at: datetime | None = None
 

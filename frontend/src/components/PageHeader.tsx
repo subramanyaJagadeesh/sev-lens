@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLayout } from "../contexts/LayoutContext";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -30,6 +31,9 @@ function BackIcon() {
 export function PageHeader({ title, description, showBackButton, onBack, actions }: Props) {
   const { isSidebarCollapsed, toggleSidebar } = useLayout();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+  const shouldShowBackButton = showBackButton ?? true;
+  const handleBack = onBack ?? (() => navigate(-1));
 
   return (
     <header className="flex items-center justify-between gap-4">
@@ -44,11 +48,11 @@ export function PageHeader({ title, description, showBackButton, onBack, actions
           >
             <SidebarIcon />
           </button>
-          {showBackButton ? (
+          {shouldShowBackButton ? (
             <button
               type="button"
               className="icon-button"
-              onClick={onBack}
+              onClick={handleBack}
               aria-label="Back"
               title="Back"
             >

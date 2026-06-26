@@ -9,6 +9,7 @@ type Props = {
   options: SelectOption[];
   onChange: (value: string) => void;
   placeholder?: string;
+  maxLabelLength?: number;
   disabled?: boolean;
   className?: string;
   ariaLabel?: string;
@@ -29,6 +30,7 @@ export function Select({
   options,
   onChange,
   placeholder,
+  maxLabelLength,
   disabled = false,
   className = "",
   ariaLabel,
@@ -48,12 +50,12 @@ export function Select({
       >
         {placeholder ? (
           <option value="">
-            {placeholder}
+            {truncateLabel(placeholder, maxLabelLength)}
           </option>
         ) : null}
         {options.map((option) => (
           <option key={option.value} value={option.value} disabled={option.disabled}>
-            {option.label}
+            {truncateLabel(option.label, maxLabelLength)}
           </option>
         ))}
       </select>
@@ -62,4 +64,11 @@ export function Select({
       </span>
     </div>
   );
+}
+
+function truncateLabel(value: string, maxLength?: number) {
+  if (!maxLength || value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }

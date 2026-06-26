@@ -8,6 +8,7 @@ This folder holds the canonical seed content, shared contract references, and mo
 - Runbooks and RCAs
 - Service catalog and deployment data
 - Cross-service contract registry data
+- Shared incident, analysis, and knowledge contracts
 
 ## Notes
 

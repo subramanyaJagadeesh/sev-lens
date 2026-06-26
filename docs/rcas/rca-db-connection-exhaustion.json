@@ -1,0 +1,30 @@
+{
+  "service_name": "database-service",
+  "severity": "P1",
+  "symptoms": [
+    "connection pool exhaustion",
+    "slow queries",
+    "request concurrency spike"
+  ],
+  "root_cause": "Active requests exceeded pool capacity while slow queries held connections longer than expected.",
+  "resolution": "Reduce request pressure, tune pool configuration, and add follow-up checks for pool utilization.",
+  "prevention_items": [
+    "Track connection pool headroom",
+    "Alert on slow query spikes",
+    "Validate concurrency assumptions before load events"
+  ],
+  "related_errors": [
+    "pool timeout",
+    "slow query"
+  ],
+  "related_dependencies": [
+    "database-service",
+    "primary datastore"
+  ],
+  "incident_date": "2026-05-24",
+  "tags": [
+    "database",
+    "pooling",
+    "latency"
+  ]
+}

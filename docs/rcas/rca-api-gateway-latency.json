@@ -1,0 +1,30 @@
+{
+  "service_name": "api-gateway",
+  "severity": "P2",
+  "symptoms": [
+    "p99 latency increase",
+    "upstream retry saturation",
+    "route dwell time growth"
+  ],
+  "root_cause": "A tighter retry budget combined with increased route dwell time after a timeout change saturated the request path.",
+  "resolution": "Relax the retry budget, reduce dwell time, and validate the gateway path under load.",
+  "prevention_items": [
+    "Review retry budgets before timeout changes",
+    "Track p99 latency and retry saturation together",
+    "Test gateway dwell time during rollout"
+  ],
+  "related_errors": [
+    "upstream timeout",
+    "retry saturation"
+  ],
+  "related_dependencies": [
+    "api-gateway",
+    "upstream services"
+  ],
+  "incident_date": "2026-05-29",
+  "tags": [
+    "gateway",
+    "latency",
+    "retry"
+  ]
+}

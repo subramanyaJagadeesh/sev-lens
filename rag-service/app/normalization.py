@@ -37,5 +37,27 @@ def normalize_recommendation_payload(raw_payload: Any) -> RecommendationPayload:
     if not isinstance(raw_payload["requires_human_approval"], bool):
         raise ValueError("LLM response requires_human_approval must be a boolean.")
 
-    return RecommendationPayload.model_validate(raw_payload)
+    optional_list_fields = {
+        "symptoms": str,
+        "unsupported_areas": str,
+        "hypotheses": dict,
+        "source_documents": dict,
+        "similar_rcas": dict,
+        "action_evidence_links": dict,
+    }
+    for field_name, item_type in optional_list_fields.items():
+        if field_name not in raw_payload or raw_payload[field_name] is None:
+            continue
+        value = raw_payload[field_name]
+        if not isinstance(value, list) or not all(isinstance(item, item_type) for item in value):
+            raise ValueError(f"LLM response {field_name} must be a list of {item_type.__name__} values.")
 
+    if "incident_summary" in raw_payload and raw_payload["incident_summary"] is not None and not isinstance(
+        raw_payload["incident_summary"], str
+    ):
+        raise ValueError("LLM response incident_summary must be a string.")
+
+    if "risk_level" in raw_payload and raw_payload["risk_level"] is not None and not isinstance(raw_payload["risk_level"], str):
+        raise ValueError("LLM response risk_level must be a string.")
+
+    return RecommendationPayload.model_validate(raw_payload)
