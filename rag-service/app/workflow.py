@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from collections.abc import Callable
 
 from langgraph.graph import END, StateGraph
 
@@ -52,13 +53,29 @@ class InvestigationWorkflow:
         self.logger = logger or logging.getLogger(__name__)
         self._graph = self._build_graph()
 
-    def run(self, request: AnalyzeIncidentRequest) -> tuple[list[AnalysisEvent], RecommendationPayload, dict[str, Any]]:
+    def run(
+        self,
+        request: AnalyzeIncidentRequest,
+        event_callback: Callable[[AnalysisEvent], None] | None = None,
+    ) -> tuple[list[AnalysisEvent], RecommendationPayload, dict[str, Any]]:
         """Execute the LangGraph workflow and return events, output, and state."""
-        return self._run_graph(request)
+        return self._run_graph(request, event_callback=event_callback)
 
-    def _run_graph(self, request: AnalyzeIncidentRequest) -> tuple[list[AnalysisEvent], RecommendationPayload, dict[str, Any]]:
-        """Invoke the compiled graph and normalize its return payload."""
-        graph_state = self._graph.invoke({"request": request})
+    def _run_graph(
+        self,
+        request: AnalyzeIncidentRequest,
+        event_callback: Callable[[AnalysisEvent], None] | None = None,
+    ) -> tuple[list[AnalysisEvent], RecommendationPayload, dict[str, Any]]:
+        """Stream the compiled graph, emit new events incrementally, and normalize the final payload."""
+        graph_state: dict[str, Any] | None = None
+        for chunk in self._graph.stream({"request": request, "_event_callback": event_callback}, stream_mode="updates"):
+            if not chunk:
+                continue
+            graph_state = next(iter(chunk.values()))
+            if not isinstance(graph_state, dict):
+                continue
+        if graph_state is None:
+            graph_state = self._graph.invoke({"request": request, "_event_callback": event_callback})
         return (
             list(graph_state["analysis_events"]),
             graph_state["recommendation"],
@@ -114,7 +131,7 @@ class InvestigationWorkflow:
         classification_event, classification = self._classify_incident(request)
         state["classification"] = classification
         workflow_state.classification = classification
-        state.setdefault("analysis_events", []).append(classification_event)
+        self._emit_analysis_event(state, classification_event)
         state.setdefault("step_records", []).append(self._record_step("incident_classifier", classification_event))
         workflow_state.step_records = list(state["step_records"])
         state["workflow_state"] = workflow_state.model_dump(mode="json")
@@ -197,7 +214,7 @@ class InvestigationWorkflow:
         )
         workflow_state.step_records.append(self._record_step("investigation_planner", planner_event))
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(planner_event)
+        self._emit_analysis_event(state, planner_event)
         state.setdefault("step_records", []).append(self._record_step("investigation_planner", planner_event))
         self._log_node_state(
             "investigation_planner",
@@ -233,7 +250,7 @@ class InvestigationWorkflow:
         self._log_node_state("context_collector", state, "start", service=request.service_name)
         workflow_state = InvestigationWorkflowState.model_validate(state["workflow_state"])
         analysis_events = state.setdefault("analysis_events", [])
-        bundle = self._collect_context(request, workflow_state, analysis_events)
+        bundle = self._collect_context(request, workflow_state, analysis_events, state.get("_event_callback"))
         state["context_bundle"] = bundle
         workflow_state.context = bundle.context
         workflow_state.context_collected = True
@@ -286,8 +303,8 @@ class InvestigationWorkflow:
         workflow_state.step_records = list(state.get("step_records", []))
         workflow_state.step_records.append(self._record_step("knowledge_retriever", retrieval_event))
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(runbook_result.to_analysis_event())
-        state.setdefault("analysis_events", []).append(retrieval_event)
+        self._emit_analysis_event(state, runbook_result.to_analysis_event())
+        self._emit_analysis_event(state, retrieval_event)
         state.setdefault("step_records", []).append(self._record_step("knowledge_retriever", retrieval_event))
         self._log_node_state(
             "knowledge_retriever",
@@ -338,8 +355,8 @@ class InvestigationWorkflow:
         workflow_state.step_records = list(state.get("step_records", []))
         workflow_state.step_records.append(self._record_step("rca_retriever", retrieval_event))
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(rca_result.to_analysis_event())
-        state.setdefault("analysis_events", []).append(retrieval_event)
+        self._emit_analysis_event(state, rca_result.to_analysis_event())
+        self._emit_analysis_event(state, retrieval_event)
         state.setdefault("step_records", []).append(self._record_step("rca_retriever", retrieval_event))
         self._log_node_state(
             "rca_retriever",
@@ -372,7 +389,7 @@ class InvestigationWorkflow:
         )
         workflow_state.step_records.append(self._record_step("hypothesis_generator", hypothesis_event))
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(hypothesis_event)
+        self._emit_analysis_event(state, hypothesis_event)
         state.setdefault("step_records", []).append(self._record_step("hypothesis_generator", hypothesis_event))
         self._log_node_state(
             "hypothesis_generator",
@@ -403,7 +420,7 @@ class InvestigationWorkflow:
         )
         workflow_state.step_records.append(self._record_step("evidence_verifier", evidence_event))
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(evidence_event)
+        self._emit_analysis_event(state, evidence_event)
         state.setdefault("step_records", []).append(self._record_step("evidence_verifier", evidence_event))
         self._log_node_state(
             "evidence_verifier",
@@ -431,7 +448,7 @@ class InvestigationWorkflow:
         workflow_state.step_records = list(state.get("step_records", []))
         workflow_state.step_records.append(self._record_step("recommendation_planner", recommendation_plan_event))
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(recommendation_plan_event)
+        self._emit_analysis_event(state, recommendation_plan_event)
         state.setdefault("step_records", []).append(self._record_step("recommendation_planner", recommendation_plan_event))
         self._log_node_state(
             "recommendation_planner",
@@ -480,7 +497,7 @@ class InvestigationWorkflow:
         state["recommendation"] = recommendation
         state["llm_payload"] = llm_payload
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(response_event)
+        self._emit_analysis_event(state, response_event)
         state.setdefault("step_records", []).append(self._record_step("response_composer", response_event))
         self._log_node_state(
             "response_composer",
@@ -512,7 +529,7 @@ class InvestigationWorkflow:
         )
         workflow_state.step_records.append(self._record_step("final_recommendation", recommendation_event))
         state["workflow_state"] = workflow_state.model_dump(mode="json")
-        state.setdefault("analysis_events", []).append(recommendation_event)
+        self._emit_analysis_event(state, recommendation_event)
         state.setdefault("step_records", []).append(self._record_step("final_recommendation", recommendation_event))
         recommendation.raw_model_output = {
             "workflow_state": state["workflow_state"],
@@ -560,7 +577,7 @@ class InvestigationWorkflow:
         bundle = state.get("context_bundle")
         if isinstance(bundle, AnalysisContextBundle):
             return bundle
-        bundle = self._collect_context(request, workflow_state, analysis_events)
+        bundle = self._collect_context(request, workflow_state, analysis_events, state.get("_event_callback"))
         state["context_bundle"] = bundle
         state["workflow_state"] = workflow_state.model_dump(mode="json")
         state.setdefault("step_records", []).extend(workflow_state.step_records[-1:])
@@ -617,6 +634,7 @@ class InvestigationWorkflow:
         request: AnalyzeIncidentRequest,
         state: InvestigationWorkflowState,
         analysis_events: list[AnalysisEvent],
+        event_callback: Callable[[AnalysisEvent], None] | None = None,
     ) -> AnalysisContextBundle:
         """Gather logs, metrics, deployments, and service metadata in one pass."""
         bundle = self.toolchain.collect_context(request)
@@ -637,6 +655,8 @@ class InvestigationWorkflow:
         state.step_records.append(self._record_step("context_collector", summary_event))
         analysis_events.extend(bundle.tool_events)
         analysis_events.append(summary_event)
+        if callable(event_callback):
+            event_callback(summary_event)
         return bundle
 
     def _retrieve_reference_material(
@@ -646,6 +666,7 @@ class InvestigationWorkflow:
         bundle: AnalysisContextBundle,
         state: InvestigationWorkflowState,
         analysis_events: list[AnalysisEvent],
+        event_callback: Callable[[AnalysisEvent], None] | None = None,
     ) -> AnalysisContextBundle:
         """Retrieve the primary knowledge documents for the current incident."""
         bundle = self.toolchain.retrieve_reference_material(request, query, bundle)
@@ -665,6 +686,8 @@ class InvestigationWorkflow:
         )
         state.step_records.append(self._record_step("knowledge_retriever", retrieval_summary))
         analysis_events.append(retrieval_summary)
+        if callable(event_callback):
+            event_callback(retrieval_summary)
         return bundle
 
     def _generate_hypotheses(
@@ -1111,6 +1134,21 @@ class InvestigationWorkflow:
     ) -> AnalysisEvent:
         """Create a normalized workflow event for the incident timeline."""
         return AnalysisEvent(event_type=event_type, message=message, payload=payload or None)
+
+    def _coerce_analysis_event(self, event: AnalysisEvent | dict[str, Any]) -> AnalysisEvent:
+        """Normalize streamed graph output into a structured analysis event."""
+        if isinstance(event, AnalysisEvent):
+            return event
+        return AnalysisEvent.model_validate(event)
+
+    def _emit_analysis_event(self, state: dict[str, Any], event: AnalysisEvent | dict[str, Any]) -> AnalysisEvent:
+        """Append an analysis event to workflow state and flush it to any live callback immediately."""
+        analysis_event = self._coerce_analysis_event(event)
+        state.setdefault("analysis_events", []).append(analysis_event)
+        callback = state.get("_event_callback")
+        if callable(callback):
+            callback(analysis_event)
+        return analysis_event
 
     def _extract_documents(self, result: Any, key: str) -> list[dict[str, Any]]:
         """Pull a document list from a tool result payload in a safe, uniform way."""

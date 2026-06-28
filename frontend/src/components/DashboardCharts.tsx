@@ -20,14 +20,26 @@ function countBy<T>(items: T[], keyGetter: (item: T) => string) {
 
 function chartColors(theme: "light" | "dark") {
   return theme === "light"
-    ? ["#0f766e", "#2563eb", "#7c3aed", "#ea580c", "#be123c", "#ca8a04", "#16a34a"]
-    : ["#5eead4", "#93c5fd", "#c4b5fd", "#fdba74", "#fda4af", "#fde68a", "#86efac"];
+    ? ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#6366f1", "#a855f7"]
+    : ["#fca5a5", "#fdba74", "#fde047", "#86efac", "#93c5fd", "#c4b5fd", "#d8b4fe"];
 }
 
-function heatmapColors(theme: "light" | "dark") {
-  return theme === "light"
-    ? ["#fef3c7", "#fde68a", "#fcd34d", "#fdba74", "#fb923c", "#f97316", "#ea580c"]
-    : ["#3f2d0a", "#7c2d12", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fde68a"];
+function gradientColor(theme: "light" | "dark", color: string) {
+  const paletteColor = Highcharts.color(color);
+  const start = theme === "light" ? paletteColor?.brighten(0.28).get("rgba") ?? color : paletteColor?.brighten(0.08).get("rgba") ?? color;
+  const end = theme === "light" ? color : paletteColor?.brighten(-0.04).get("rgba") ?? color;
+
+  return {
+    linearGradient: { x1: 0, y1: 0, x2: 1, y2: 1 },
+    stops: [
+      [0, start],
+      [1, end],
+    ],
+  };
+}
+
+function chartGradients(theme: "light" | "dark") {
+  return chartColors(theme).map((color) => gradientColor(theme, color));
 }
 
 function chartTextColor(theme: "light" | "dark") {
@@ -49,7 +61,6 @@ function commonOptions(theme: "light" | "dark") {
     title: { text: undefined },
     credits: { enabled: false },
     legend: { enabled: false },
-    colors: chartColors(theme),
     xAxis: {
       labels: { style: { color: chartTextColor(theme) } },
       lineColor: chartGridColor(theme),
@@ -72,6 +83,7 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
   const incidentStatusCounts = countBy(incidents, (incident) => incident.status);
   const eventTypeCounts = countBy(events, (event) => event.event_type);
   const eventCountsByIncident = countBy(events, (event) => event.incident_id);
+  const palette = chartGradients(theme);
 
   const incidentStatusOptions = {
     ...commonOptions(theme),
@@ -80,7 +92,7 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
       ...commonOptions(theme).tooltip,
       pointFormat: "<b>{point.y}</b> incidents",
     },
-    colors: heatmapColors(theme),
+    colors: palette,
     plotOptions: {
       pie: {
         innerSize: "60%",
@@ -112,13 +124,13 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
       ...commonOptions(theme).tooltip,
       pointFormat: "<b>{point.y}</b> events",
     },
-    colors: heatmapColors(theme),
+    colors: palette,
     series: [
       {
         type: "column" as const,
         data: Object.values(eventTypeCounts).map((value, index) => ({
           y: value,
-          color: heatmapColors(theme)[index % heatmapColors(theme).length],
+          color: palette[index % palette.length],
         })),
       },
     ],
@@ -135,13 +147,13 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
       ...commonOptions(theme).tooltip,
       pointFormat: "<b>{point.y}</b> events",
     },
-    colors: heatmapColors(theme),
+    colors: palette,
     series: [
       {
         type: "bar" as const,
         data: incidents.map((incident, index) => ({
           y: eventCountsByIncident[incident.incident_id] ?? 0,
-          color: heatmapColors(theme)[index % heatmapColors(theme).length],
+          color: palette[index % palette.length],
         })),
       },
     ],
@@ -158,13 +170,13 @@ export function DashboardCharts({ incidents, events, analysisRuns, theme }: Prop
       ...commonOptions(theme).tooltip,
       pointFormat: "<b>{point.y}</b> ms",
     },
-    colors: heatmapColors(theme),
+    colors: palette,
     series: [
       {
         type: "bar" as const,
         data: analysisRuns.map((run, index) => ({
           y: run.analysis_latency_ms ?? 0,
-          color: heatmapColors(theme)[index % heatmapColors(theme).length],
+          color: palette[index % palette.length],
         })),
       },
     ],

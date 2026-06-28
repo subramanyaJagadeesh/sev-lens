@@ -19,10 +19,13 @@ class AnalysisRequestEnvelope:
     created_at: datetime
     correlation_id: str
     source: str = "incident-api"
+    analysis_run_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["created_at"] = self.created_at.isoformat()
+        if payload.get("analysis_run_id") is None:
+            payload.pop("analysis_run_id", None)
         return payload
 
     def to_stream_message(self) -> dict[str, str]:
@@ -30,6 +33,7 @@ class AnalysisRequestEnvelope:
             "payload": json.dumps(self.to_dict()),
             "incident_id": self.incident_id,
             "scenario_id": self.scenario_id,
+            "analysis_run_id": self.analysis_run_id or "",
             "correlation_id": self.correlation_id,
             "source": self.source,
         }
@@ -39,6 +43,7 @@ class AnalysisRequestEnvelope:
         return cls(
             incident_id=payload["incident_id"],
             scenario_id=payload["scenario_id"],
+            analysis_run_id=payload.get("analysis_run_id") or None,
             service_name=payload["service_name"],
             severity=payload["severity"],
             symptom=payload["symptom"],
@@ -62,6 +67,7 @@ class AnalysisRequestEnvelope:
 class AnalysisResultEnvelope:
     incident_id: str
     analysis_status: str
+    analysis_run_id: str | None = None
     recommendation: dict[str, Any] | None = None
     analysis_events: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
@@ -71,10 +77,12 @@ class AnalysisResultEnvelope:
         return asdict(self)
 
     def to_stream_message(self) -> dict[str, str]:
+        analysis_run_id = self.analysis_run_id or ""
         return {
             "payload": json.dumps(self.to_dict()),
             "incident_id": self.incident_id,
             "analysis_status": self.analysis_status,
+            "analysis_run_id": analysis_run_id,
         }
 
     @classmethod
@@ -82,6 +90,7 @@ class AnalysisResultEnvelope:
         return cls(
             incident_id=payload["incident_id"],
             analysis_status=payload["analysis_status"],
+            analysis_run_id=payload.get("analysis_run_id") or None,
             recommendation=payload.get("recommendation"),
             analysis_events=payload.get("analysis_events", []),
             error=payload.get("error"),

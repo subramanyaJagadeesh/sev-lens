@@ -117,8 +117,8 @@ export function IncidentsPage() {
                 <Select
                   value={statusFilter}
                   onChange={setStatusFilter}
-                  placeholder="All statuses"
                   options={[
+                    { value: "ALL", label: "All statuses" },
                     { value: "QUEUED", label: formatStatusLabel("QUEUED") },
                     { value: "ANALYZING", label: formatStatusLabel("ANALYZING") },
                     { value: "RECOMMENDATION_READY", label: formatStatusLabel("RECOMMENDATION_READY") },
@@ -133,11 +133,15 @@ export function IncidentsPage() {
                 <Select
                   value={severityFilter}
                   onChange={setSeverityFilter}
-                  placeholder="All severities"
-                  options={severityOptions.filter((severity) => severity !== "ALL").map((severity) => ({
-                    value: severity,
-                    label: severity,
-                  }))}
+                  options={[
+                    { value: "ALL", label: "All severities" },
+                    ...severityOptions
+                      .filter((severity) => severity !== "ALL")
+                      .map((severity) => ({
+                        value: severity,
+                        label: severity,
+                      })),
+                  ]}
                 />
               </label>
             </div>

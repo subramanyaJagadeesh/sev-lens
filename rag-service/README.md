@@ -1,14 +1,28 @@
 # SevLens RAG Service
 
-This service owns analysis, retrieval, knowledge management, RCA memory, and the worker side of async incident processing.
+This service owns the investigation side of SevLens: retrieval, structured recommendation generation, knowledge management, RCA memory, and the worker that processes queued incidents.
 
 ## What it does
 
-- runs the analysis API and the background worker
-- retrieves context from the local knowledge base and RCA memory
-- searches OpenSearch for log evidence
-- generates structured recommendations
-- exposes KB and RCA management endpoints
+- runs the `/analyze` API and the background worker
+- retrieves context from the local knowledge base, RCA memory, metrics, and OpenSearch-backed log evidence
+- generates structured recommendations and intermediate investigation events
+- exposes Knowledge Base and RCA Memory management endpoints
+- persists local KB metadata in SQLite and document chunks in the vector store
+- records RCA feedback so historical matches can improve over time
+
+## Why it exists
+
+The incident API should stay focused on incident state. This service handles the heavier analysis work so the product can explain how it arrived at a recommendation instead of returning a black-box answer.
+
+## Main features
+
+- `/analyze` for direct analysis/testing and sync fallback
+- worker support for async incident processing through Redis Streams
+- Knowledge Base APIs for listing, creating, editing, re-indexing, and searching docs
+- RCA Memory APIs for browsing similar incidents and saving helpful/not-helpful feedback
+- OpenSearch log search for scenario-specific and service-specific evidence
+- embedding and knowledge backend abstractions so storage can evolve without changing the API
 
 ## Requirements
 
@@ -41,6 +55,8 @@ python -m app.worker
 
 Run both commands from inside `rag-service/` so the package resolves `shared/` without a repo-root launch.
 
+If you are testing local AI behavior, point `RAG_LLM_PROVIDER` at either `openai` or `ollama` before starting the API.
+
 ## Environment variables
 
 ### LLM
@@ -67,4 +83,4 @@ Run both commands from inside `rag-service/` so the package resolves `shared/` w
 - Local knowledge documents and RCAs are persisted; they are not in-memory-only demo data.
 - OpenSearch is the only log search backend for the current V3 flow.
 - The synchronous `/analyze` endpoint remains available for direct testing and compatibility.
-
+- The worker emits step-level investigation events so the incident detail page can show how a recommendation was assembled.

@@ -10,6 +10,14 @@ type MemoryDetail = {
   feedback: RcaFeedback[];
 };
 
+function isKnownText(value: string | null | undefined) {
+  if (value == null) {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && normalized !== "unknown" && normalized !== "not set" && normalized !== "not captured" && normalized !== "date not set";
+}
+
 export function RcaMemoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -127,6 +135,9 @@ export function RcaMemoryPage() {
   }, [selectedId]);
 
   const detailRecord = detail?.memory ?? null;
+  const detailFeedback = detail?.feedback ?? [];
+  const detailHelpfulVotes = detailFeedback.length ? detailFeedback.filter((entry) => entry.helpful).length : detailRecord?.helpful_count ?? 0;
+  const detailNotHelpfulVotes = detailFeedback.length ? detailFeedback.filter((entry) => !entry.helpful).length : detailRecord?.not_helpful_count ?? 0;
 
   return (
     <div className="space-y-6">
@@ -179,27 +190,37 @@ export function RcaMemoryPage() {
                 No RCA memories match the current filters.
               </div>
             ) : null}
-            {filteredMemories.map((memory) => (
-              <button
-                key={memory.rca_id}
-                type="button"
-                onClick={() => setSearchParams({ rcaId: memory.rca_id })}
-                className={`w-full rounded-xl border p-4 text-left transition ${
-                  selectedId === memory.rca_id ? "border-[color:var(--accent)] bg-panel-soft" : "border-border bg-panel-soft/60"
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">{memory.title}</p>
-                    <p className="mt-1 text-xs text-subtle">
-                      {memory.service_name} • {memory.severity} • {memory.incident_date || "Date not set"}
-                    </p>
+            {filteredMemories.map((memory) => {
+              const isSelected = selectedId === memory.rca_id;
+              const selectedFeedback = isSelected && detailRecord?.rca_id === memory.rca_id ? detailFeedback : [];
+              const helpfulVotes = selectedFeedback.length ? selectedFeedback.filter((entry) => entry.helpful).length : memory.helpful_count;
+
+              return (
+                <button
+                  key={memory.rca_id}
+                  type="button"
+                  onClick={() => setSearchParams({ rcaId: memory.rca_id })}
+                  className={`w-full rounded-xl border p-4 text-left transition ${
+                    isSelected ? "border-[color:var(--accent)] bg-panel-soft" : "border-border bg-panel-soft/60"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{memory.title}</p>
+                      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-subtle">
+                        {isKnownText(memory.service_name) ? <span>{memory.service_name}</span> : null}
+                        {isKnownText(memory.service_name) && isKnownText(memory.severity) ? <span>•</span> : null}
+                        {isKnownText(memory.severity) ? <span>{memory.severity}</span> : null}
+                        {((isKnownText(memory.service_name) || isKnownText(memory.severity)) && isKnownText(memory.incident_date)) ? <span>•</span> : null}
+                        {isKnownText(memory.incident_date) ? <span>{memory.incident_date}</span> : null}
+                      </div>
+                    </div>
+                    <span className="chip-accent px-4 py-2 text-xs">Helpful {helpfulVotes}</span>
                   </div>
-                  <span className="chip-accent px-4 py-2 text-xs">Helpful {memory.helpful_count}</span>
-                </div>
-                <p className="mt-3 max-h-12 overflow-hidden text-sm text-muted">{memory.root_cause || "No root cause captured."}</p>
-              </button>
-            ))}
+                  {isKnownText(memory.root_cause) ? <p className="mt-3 max-h-12 overflow-hidden text-sm text-muted">{memory.root_cause}</p> : null}
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -215,22 +236,22 @@ export function RcaMemoryPage() {
                     <p className="mt-1 text-sm text-muted">{detailRecord.rca_id}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <span className="chip px-4 py-2">{detailRecord.service_name}</span>
-                    <span className="chip px-4 py-2">{detailRecord.severity}</span>
+                    {isKnownText(detailRecord.service_name) ? <span className="chip px-4 py-2">{detailRecord.service_name}</span> : null}
+                    {isKnownText(detailRecord.severity) ? <span className="chip px-4 py-2">{detailRecord.severity}</span> : null}
                     <span className="chip px-4 py-2">{detailRecord.archived ? "Archived" : "Active"}</span>
                   </div>
                 </div>
 
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  <InfoCard title="Symptoms" value={detailRecord.symptoms.length ? detailRecord.symptoms.join(", ") : "None captured"} />
-                  <InfoCard title="Incident date" value={detailRecord.incident_date || "Not set"} />
-                  <InfoCard title="Helpful votes" value={String(detailRecord.helpful_count)} />
-                  <InfoCard title="Not helpful votes" value={String(detailRecord.not_helpful_count)} />
+                  {detailRecord.symptoms.length ? <InfoCard title="Symptoms" value={detailRecord.symptoms.join(", ")} /> : null}
+                  {isKnownText(detailRecord.incident_date) ? <InfoCard title="Incident date" value={detailRecord.incident_date} /> : null}
+                  <InfoCard title="Helpful votes" value={String(detailHelpfulVotes)} />
+                  <InfoCard title="Not helpful votes" value={String(detailNotHelpfulVotes)} />
                 </div>
 
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  <InfoCard title="Root cause" value={detailRecord.root_cause || "Not captured"} />
-                  <InfoCard title="Resolution" value={detailRecord.resolution || "Not captured"} />
+                  {isKnownText(detailRecord.root_cause) ? <InfoCard title="Root cause" value={detailRecord.root_cause} /> : null}
+                  {isKnownText(detailRecord.resolution) ? <InfoCard title="Resolution" value={detailRecord.resolution} /> : null}
                 </div>
 
                 {detailRecord.prevention_items.length ? (

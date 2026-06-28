@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 
 from .knowledge_backend import KnowledgeBackend, create_knowledge_backend
 from .llm_client import OpenAICompatibleLLMClient
-from .schemas import AnalyzeIncidentRequest, AnalyzeIncidentResponse
+from .schemas import AnalyzeIncidentRequest, AnalyzeIncidentResponse, AnalysisEvent
 from .tools import AnalysisToolchain
 from .workflow import InvestigationWorkflow
 
@@ -25,7 +26,11 @@ class AnalysisEngine:
     def ensure_log_store_ready(self) -> None:
         self.toolchain.ensure_ready()
 
-    def analyze(self, request: AnalyzeIncidentRequest) -> AnalyzeIncidentResponse:
+    def analyze(
+        self,
+        request: AnalyzeIncidentRequest,
+        event_callback: Callable[[AnalysisEvent], None] | None = None,
+    ) -> AnalyzeIncidentResponse:
         started_at = time.perf_counter()
         self.logger.info(
             "Starting analysis for incident_id=%s service=%s severity=%s",
@@ -40,7 +45,7 @@ class AnalysisEngine:
             toolchain=self.toolchain,
             logger=self.logger,
         )
-        analysis_events, recommendation, workflow_state = workflow.run(request)
+        analysis_events, recommendation, workflow_state = workflow.run(request, event_callback=event_callback)
         self.logger.info(
             "Finished analysis for incident_id=%s in %.2fs",
             request.incident_id,

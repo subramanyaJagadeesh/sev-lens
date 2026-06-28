@@ -1,7 +1,8 @@
 import { NavLink } from "react-router-dom";
+import { DashboardIcon, IncidentsIcon, KnowledgeIcon, RcaIcon } from "./NavIcons";
 
 function navClass({ isActive }: { isActive: boolean }) {
-  return `button w-full justify-start ${isActive ? "button-primary" : "theme-toggle"}`;
+  return `button w-full justify-start text-left ${isActive ? "button-primary" : "theme-toggle"}`;
 }
 
 export function Sidebar() {
@@ -15,20 +16,20 @@ export function Sidebar() {
 
       <nav className="mt-6 space-y-2">
         <NavLink to="/" end className={navClass}>
-          <span aria-hidden="true">🏠</span>
-          <span>Dashboard</span>
+          <DashboardIcon className="h-4 w-4" />
+          <span className="flex-1">Dashboard</span>
         </NavLink>
         <NavLink to="/incidents" className={navClass}>
-          <span aria-hidden="true">📋</span>
-          <span>Incidents</span>
+          <IncidentsIcon className="h-4 w-4" />
+          <span className="flex-1">Incidents</span>
         </NavLink>
         <NavLink to="/knowledge" className={navClass}>
-          <span aria-hidden="true">📚</span>
-          <span>Knowledge Base</span>
+          <KnowledgeIcon className="h-4 w-4" />
+          <span className="flex-1">Knowledge Base</span>
         </NavLink>
         <NavLink to="/rca-memory" className={navClass}>
-          <span aria-hidden="true">🧠</span>
-          <span>RCA Memory</span>
+          <RcaIcon className="h-4 w-4" />
+          <span className="flex-1">RCA Memory</span>
         </NavLink>
       </nav>
 

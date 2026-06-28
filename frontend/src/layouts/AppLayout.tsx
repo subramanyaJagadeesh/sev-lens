@@ -4,7 +4,7 @@ import { useLayout } from "../contexts/LayoutContext";
 
 export function AppLayout() {
   const { isSidebarCollapsed } = useLayout();
-  const sidebarWidth = isSidebarCollapsed ? "0px" : "clamp(16rem, 20vw, 20rem)";
+  const sidebarWidth = isSidebarCollapsed ? "0px" : "clamp(16rem, 15vw, 20rem)";
 
   return (
     <div className="min-h-screen w-full">

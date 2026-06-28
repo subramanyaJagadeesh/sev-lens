@@ -9,6 +9,14 @@ type Props = {
   analysisRun: IncidentAnalysisRun | null;
 };
 
+function isKnownText(value: string | null | undefined) {
+  if (value == null) {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && normalized !== "unknown" && normalized !== "not set" && normalized !== "not captured" && normalized !== "date not set";
+}
+
 export function RcaMatchPanel({ incidentId, analysisRun }: Props) {
   const matches = useMemo(() => getRcaMatches(analysisRun), [analysisRun]);
   const [feedbackByRcaId, setFeedbackByRcaId] = useState<Record<string, RcaFeedback[]>>({});
@@ -74,15 +82,21 @@ export function RcaMatchPanel({ incidentId, analysisRun }: Props) {
         <div className="space-y-4">
           {matches.map((match) => {
             const feedback = feedbackByRcaId[match.rca_id] ?? [];
-            const latestFeedback = feedback.at(0) ?? null;
+            const helpfulVotes = feedback.length ? feedback.filter((entry) => entry.helpful).length : match.helpful_count;
+            const notHelpfulVotes = feedback.length ? feedback.filter((entry) => !entry.helpful).length : match.not_helpful_count;
+            const latestFeedback = feedback.length ? feedback[feedback.length - 1] : null;
             return (
               <div key={match.rca_id} className="rounded-xl border border-border bg-panel-soft p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold">{match.title}</p>
-                    <p className="mt-1 text-xs text-subtle">
-                      {match.service_name} • {match.severity} • {match.incident_date || "Date not set"}
-                    </p>
+                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-subtle">
+                      {isKnownText(match.service_name) ? <span>{match.service_name}</span> : null}
+                      {isKnownText(match.service_name) && isKnownText(match.severity) ? <span>•</span> : null}
+                      {isKnownText(match.severity) ? <span>{match.severity}</span> : null}
+                      {((isKnownText(match.service_name) || isKnownText(match.severity)) && isKnownText(match.incident_date)) ? <span>•</span> : null}
+                      {isKnownText(match.incident_date) ? <span>{match.incident_date}</span> : null}
+                    </div>
                   </div>
                   <span className="chip-accent px-3 py-1 text-xs">Score {match.score.toFixed(3)}</span>
                 </div>
@@ -90,10 +104,10 @@ export function RcaMatchPanel({ incidentId, analysisRun }: Props) {
                 <p className="mt-3 text-sm text-strong">{match.match_explanation}</p>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <MiniBlock title="Root cause" value={match.root_cause || "Not captured"} />
-                  <MiniBlock title="Resolution" value={match.resolution || "Not captured"} />
-                  <MiniBlock title="Helpful votes" value={String(match.helpful_count)} />
-                  <MiniBlock title="Not helpful votes" value={String(match.not_helpful_count)} />
+                  {isKnownText(match.root_cause) ? <MiniBlock title="Root cause" value={match.root_cause} /> : null}
+                  {isKnownText(match.resolution) ? <MiniBlock title="Resolution" value={match.resolution} /> : null}
+                  <MiniBlock title="Helpful votes" value={String(helpfulVotes)} />
+                  <MiniBlock title="Not helpful votes" value={String(notHelpfulVotes)} />
                 </div>
 
                 {match.prevention_items.length ? (

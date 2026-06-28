@@ -1,26 +1,40 @@
 # SevLens
 
-SevLens is an open-source incident intelligence demo for exploring how an incident console, async analysis pipeline, knowledge base, and RCA memory can work together in one local-first product.
+SevLens is an open-source incident intelligence system for showing how an incident console can do more than display alerts. It ties together incident intake, live timelines, retrieval, recommendations, RCA memory, and human decisioning in one local-first app.
 
-It ships with:
+## Why SevLens Exists
 
-- a React dashboard for incidents, trends, knowledge, and RCA memory
-- a FastAPI incident API that owns incident state and event history
-- a FastAPI RAG/analysis service that retrieves evidence and produces recommendations
-- Redis Streams for async request/result handoff
-- local knowledge, RCA, and log evidence stores for repeatable demo runs
+Most incident tools stop at the alert, dashboard, or ticket. SevLens shows the rest of the workflow:
 
-## Why this repo exists
+- why an incident happened
+- what evidence supports the recommendation
+- how the analysis was assembled
+- how past RCAs and internal docs can improve the next response
+- how a team can review and override the recommendation when needed
 
-SevLens is designed as a reusable reference implementation for incident workflows:
+That makes it useful as both a product demo and a reference architecture for organizations that already have incident management in place.
 
-- trigger a seeded incident
-- stream the evolving timeline
-- inspect evidence, recommendations, and analysis runs
-- capture decisions and feedback
-- browse the knowledge base and RCA memory behind the analysis
+## What It Includes
 
-The codebase is intentionally stage-driven so the roadmap, runtime behavior, and documentation stay aligned.
+- `Dashboard` for high-level incident and analysis trends
+- `Incidents` list for searching, filtering, and opening active incidents
+- `Incident detail` for the live timeline, recommendation, RCA memory, and decision flow
+- `Knowledge Base` for managing runbooks, policies, and support docs
+- `RCA Memory` for browsing historical incident memories and feedback
+- `FastAPI incident-api` as the incident system of record
+- `FastAPI rag-service` for retrieval, recommendations, knowledge, and RCA memory
+- `Redis Streams` for async request/result handoff
+- `OpenSearch` for local log evidence search
+
+## How It Works
+
+1. The incident API creates or accepts an incident and stores it in SQLite.
+2. The incident is queued for analysis through Redis Streams.
+3. The RAG service retrieves logs, runbooks, knowledge docs, and RCA memory.
+4. The worker produces a recommendation and streams step-by-step events back.
+5. The UI shows the investigation timeline, evidence, and decision controls.
+
+The default demo flow uses seeded incidents, but any existing incident management system can post an incident into SevLens and let it continue the workflow.
 
 ## Requirements
 
@@ -77,6 +91,14 @@ cd frontend
 npm run dev
 ```
 
+### 4) Use the app
+
+- Open the dashboard to see top-level metrics and recent incidents.
+- Go to `Incidents` to trigger a seeded demo incident or inspect a live one.
+- Open `Incident detail` to follow the timeline, recommendation, RCA matches, and decision history.
+- Use `Knowledge Base` to add or edit docs the RAG flow can retrieve.
+- Use `RCA Memory` to inspect historic incidents and feedback signals.
+
 ## Environment variables
 
 ### Frontend
@@ -108,6 +130,8 @@ npm run dev
 - knowledge base documents with retrieval preview
 - RCA memory browsing and feedback
 - OpenSearch-backed log evidence
+- local vector-backed KB persistence
+- step-by-step investigation events in the incident timeline
 
 ## Source of truth
 
@@ -122,6 +146,10 @@ npm run dev
 - `docs/v2-manual-checklist.md`
 - `docs/v2-known-limitations-and-v3-plan.md`
 
+## License
+
+This project is licensed under the Apache License 2.0. See the `LICENSE` file for details.
+
 ## Contributing
 
 This repository is organized to stay easy to reuse:
@@ -130,4 +158,3 @@ This repository is organized to stay easy to reuse:
 - keep service entrypoints thin
 - prefer explicit stage-tracked changes
 - update the relevant README when service behavior changes
-

@@ -109,6 +109,11 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
   );
 
   const mergeStreamEvent = useCallback((nextEvent: IncidentEvent) => {
+    const analysisRunId =
+      nextEvent.payload && typeof nextEvent.payload === "object" && typeof nextEvent.payload.analysis_run_id === "string"
+        ? nextEvent.payload.analysis_run_id
+        : null;
+
     setIncidentDetailsById((current) => {
       const detail = current[nextEvent.incident_id];
       if (!detail) {
@@ -117,6 +122,20 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
       const nextEvents = [...detail.events.filter((item) => item.sequence !== nextEvent.sequence), nextEvent].sort(
         (left, right) => left.sequence - right.sequence,
       );
+      const nextAnalysisRuns = analysisRunId
+        ? detail.analysis_runs.map((run) => {
+            if (run.analysis_run_id !== analysisRunId) {
+              return run;
+            }
+            const nextRunEvents = [...(run.analysis_events ?? []).filter((item) => item.sequence !== nextEvent.sequence), nextEvent].sort(
+              (left, right) => left.sequence - right.sequence,
+            );
+            return {
+              ...run,
+              analysis_events: nextRunEvents,
+            };
+          })
+        : detail.analysis_runs;
       return {
         ...current,
         [nextEvent.incident_id]: {
@@ -126,6 +145,16 @@ export function IncidentDataProvider({ children }: { children: ReactNode }) {
             updated_at: nextEvent.created_at,
           },
           events: nextEvents,
+          analysis_run:
+            detail.analysis_run && detail.analysis_run.analysis_run_id === analysisRunId
+              ? {
+                  ...detail.analysis_run,
+                  analysis_events: [...(detail.analysis_run.analysis_events ?? []).filter((item) => item.sequence !== nextEvent.sequence), nextEvent].sort(
+                    (left, right) => left.sequence - right.sequence,
+                  ),
+                }
+              : detail.analysis_run,
+          analysis_runs: nextAnalysisRuns,
         },
       };
     });

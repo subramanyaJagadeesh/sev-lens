@@ -41,19 +41,19 @@ class IncidentService:
         # Create the incident record, then emit the initial audit trail entries.
         scenario = self._load_scenario(scenario_id)
         incident = self.repository.create_incident(scenario)
+        latest_run = self.repository.create_analysis_run(incident["incident_id"], scenario, "mock-create")
         created_event = self.repository.add_event(
             incident["incident_id"],
             IncidentEventType.INCIDENT_CREATED,
             f"Incident created for {incident['service_name']}",
             payload={"scenario": scenario_id},
         )
-        analysis_request = self._build_analysis_request(incident, scenario_id)
+        analysis_request = self._build_analysis_request(incident, scenario_id, latest_run["analysis_run_id"])
 
         recommendation = None
         analysis_events: list[dict[str, Any]] = []
         if self.sync_fallback_enabled:
             self.repository.update_incident_status(incident["incident_id"], IncidentStatus.ANALYZING)
-            latest_run = self.repository.create_analysis_run(incident["incident_id"], scenario, "mock-create-sync")
             analysis_started_at = self._utc_now()
             self.repository.update_analysis_run(
                 latest_run["analysis_run_id"],
@@ -120,7 +120,6 @@ class IncidentService:
             }
 
         self.repository.update_incident_status(incident["incident_id"], IncidentStatus.QUEUED)
-        self.repository.create_analysis_run(incident["incident_id"], scenario, "mock-create")
         queued_event = self.repository.add_event(
             incident["incident_id"],
             IncidentEventType.ANALYSIS_QUEUED,
@@ -146,9 +145,10 @@ class IncidentService:
             raise ValueError("Incident must be failed before retrying analysis")
 
         scenario_id = self._get_scenario_id_for_incident(incident_id)
-        analysis_request = self._build_analysis_request(incident, scenario_id)
+        scenario = self._load_scenario(scenario_id)
+        latest_run = self.repository.create_analysis_run(incident_id, scenario, "retry")
+        analysis_request = self._build_analysis_request(incident, scenario_id, latest_run["analysis_run_id"])
         updated_incident = self.repository.update_incident_status(incident_id, IncidentStatus.QUEUED)
-        self.repository.create_analysis_run(incident_id, self._load_scenario(scenario_id), "retry")
         retry_event = self.repository.add_event(
             incident_id,
             IncidentEventType.ANALYSIS_QUEUED,
@@ -219,16 +219,15 @@ class IncidentService:
 
         scenario_id = self._get_scenario_id_for_incident(result.incident_id)
         scenario = self._load_scenario(scenario_id)
-        latest_run = self.repository.get_latest_analysis_run(result.incident_id)
+        latest_run = self._get_target_analysis_run(result)
+        if latest_run is None:
+            latest_run = self.repository.get_latest_analysis_run(result.incident_id)
 
         event_records: list[dict[str, Any]] = []
         started_at: datetime | None = None
         completed_at = self._utc_now()
         has_failure_event = any(
             event.get("event_type") == IncidentEventType.ANALYSIS_FAILED.value for event in result.analysis_events
-        )
-        has_start_event = any(
-            event.get("event_type") == IncidentEventType.ANALYSIS_STARTED.value for event in result.analysis_events
         )
         for event in result.analysis_events:
             event_type = event.get("event_type")
@@ -240,6 +239,10 @@ class IncidentService:
                     payload = json.loads(payload)
                 except json.JSONDecodeError:
                     payload = {"raw": payload}
+            if payload is None:
+                payload = {}
+            if isinstance(payload, dict) and result.analysis_run_id is not None:
+                payload.setdefault("analysis_run_id", result.analysis_run_id)
             saved_event = self.repository.add_event(
                 result.incident_id,
                 IncidentEventType(event_type),
@@ -251,18 +254,6 @@ class IncidentService:
                 started_at = saved_event["created_at"]
 
         if result.analysis_status == "ANALYZING":
-            if not has_start_event:
-                started_event = self.repository.add_event(
-                    result.incident_id,
-                    IncidentEventType.ANALYSIS_STARTED,
-                    "Analysis started for mock incident",
-                )
-                event_records.append(started_event)
-                started_at = started_event["created_at"]
-            else:
-                started_event = next((event for event in event_records if event["event_type"] == IncidentEventType.ANALYSIS_STARTED), None)
-                if started_event is not None:
-                    started_at = started_event["created_at"]
             updated_incident = self.repository.update_incident_status(result.incident_id, IncidentStatus.ANALYZING)
             if latest_run is not None:
                 self.repository.update_analysis_run(
@@ -289,6 +280,7 @@ class IncidentService:
                     IncidentStatus.RECOMMENDATION_READY.value,
                     completed_at=completed_at,
                     started_at=started_at,
+                    analysis_run_id=latest_run["analysis_run_id"],
                 )
         elif result.analysis_status == "FAILED":
             if result.error and not has_failure_event:
@@ -297,7 +289,10 @@ class IncidentService:
                         result.incident_id,
                         IncidentEventType.ANALYSIS_FAILED,
                         "Analysis failed",
-                        payload={"error": result.error},
+                        payload={
+                            "error": result.error,
+                            "analysis_run_id": result.analysis_run_id,
+                        },
                     )
                 )
             updated_incident = self.repository.update_incident_status(result.incident_id, IncidentStatus.FAILED)
@@ -318,10 +313,16 @@ class IncidentService:
             "recommendation": self.repository.get_recommendation(result.incident_id),
         }
 
-    def _build_analysis_request(self, incident: dict[str, Any], scenario_id: str) -> AnalysisRequestEnvelope:
+    def _build_analysis_request(
+        self,
+        incident: dict[str, Any],
+        scenario_id: str,
+        analysis_run_id: str | None = None,
+    ) -> AnalysisRequestEnvelope:
         return AnalysisRequestEnvelope(
             incident_id=incident["incident_id"],
             scenario_id=scenario_id,
+            analysis_run_id=analysis_run_id,
             service_name=incident["service_name"],
             severity=incident["severity"],
             symptom=incident["symptom"],
@@ -342,8 +343,9 @@ class IncidentService:
         *,
         completed_at: datetime,
         started_at: datetime | None = None,
+        analysis_run_id: str | None = None,
     ) -> None:
-        latest_run = self.repository.get_latest_analysis_run(incident_id)
+        latest_run = self._get_analysis_run_for_update(incident_id, analysis_run_id)
         if latest_run is None:
             return
         recommendation_payload = recommendation or {}
@@ -466,3 +468,17 @@ class IncidentService:
             if isinstance(scenario_id, str) and scenario_id:
                 return scenario_id
         raise ValueError(f"Unable to determine scenario for incident {incident_id}")
+
+    def _get_analysis_run_for_update(self, incident_id: str, analysis_run_id: str | None) -> dict[str, Any] | None:
+        if analysis_run_id:
+            analysis_run = self.repository.get_analysis_run_by_id(analysis_run_id)
+            if analysis_run is not None:
+                return analysis_run
+        return self.repository.get_latest_analysis_run(incident_id)
+
+    def _get_target_analysis_run(self, result: AnalysisResultEnvelope) -> dict[str, Any] | None:
+        if result.analysis_run_id:
+            analysis_run = self.repository.get_analysis_run_by_id(result.analysis_run_id)
+            if analysis_run is not None:
+                return analysis_run
+        return self.repository.get_latest_analysis_run(result.incident_id)

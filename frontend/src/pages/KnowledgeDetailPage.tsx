@@ -5,6 +5,14 @@ import { PageHeader } from "../components/PageHeader";
 import type { KnowledgeDocumentDetail } from "../contracts/knowledgeContracts";
 import type { RcaFeedback, RcaMemory } from "../contracts/rcaContracts";
 
+function isKnownText(value: string | null | undefined) {
+  if (value == null) {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 && normalized !== "unknown" && normalized !== "not set" && normalized !== "not captured" && normalized !== "date not set";
+}
+
 export function KnowledgeDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -117,28 +125,28 @@ export function KnowledgeDetailPage() {
                   <p className="text-xs uppercase tracking-wide text-subtle">Document type</p>
                   <p className="mt-2 text-sm text-strong">{detail.document.doc_type}</p>
                 </div>
-                <div className="rounded-xl border border-border bg-panel-soft p-4">
-                  <p className="text-xs uppercase tracking-wide text-subtle">Service</p>
-                  <p className="mt-2 text-sm text-strong">{detail.document.service ?? "Not set"}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-panel-soft p-4">
-                  <p className="text-xs uppercase tracking-wide text-subtle">Indexed at</p>
-                  <p className="mt-2 text-sm text-strong">
-                    {detail.document.indexed_at ? new Date(detail.document.indexed_at).toLocaleString() : "Not indexed"}
-                  </p>
-                </div>
+                {isKnownText(detail.document.service) ? (
+                  <div className="rounded-xl border border-border bg-panel-soft p-4">
+                    <p className="text-xs uppercase tracking-wide text-subtle">Service</p>
+                    <p className="mt-2 text-sm text-strong">{detail.document.service}</p>
+                  </div>
+                ) : null}
+                {detail.document.indexed_at ? (
+                  <div className="rounded-xl border border-border bg-panel-soft p-4">
+                    <p className="text-xs uppercase tracking-wide text-subtle">Indexed at</p>
+                    <p className="mt-2 text-sm text-strong">{new Date(detail.document.indexed_at).toLocaleString()}</p>
+                  </div>
+                ) : null}
                 <div className="rounded-xl border border-border bg-panel-soft p-4">
                   <p className="text-xs uppercase tracking-wide text-subtle">Chunk count</p>
                   <p className="mt-2 text-sm text-strong">{detail.document.chunk_count}</p>
                 </div>
-                <div className="rounded-xl border border-border bg-panel-soft p-4 md:col-span-2">
-                  <p className="text-xs uppercase tracking-wide text-subtle">Severity relevance</p>
-                  <p className="mt-2 text-sm text-strong">
-                    {typeof detail.document.metadata.severity_relevance === "string" && detail.document.metadata.severity_relevance
-                      ? detail.document.metadata.severity_relevance
-                      : "Not set"}
-                  </p>
-                </div>
+                {typeof detail.document.metadata.severity_relevance === "string" && detail.document.metadata.severity_relevance ? (
+                  <div className="rounded-xl border border-border bg-panel-soft p-4 md:col-span-2">
+                    <p className="text-xs uppercase tracking-wide text-subtle">Severity relevance</p>
+                    <p className="mt-2 text-sm text-strong">{detail.document.metadata.severity_relevance}</p>
+                  </div>
+                ) : null}
               </div>
               <div className="mt-4">
                 <p className="text-xs uppercase tracking-wide text-subtle">Tags</p>

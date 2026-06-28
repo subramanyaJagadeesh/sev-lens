@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from shared.contracts.analysis_contracts import AnalysisRequestEnvelope, AnalysisResultEnvelope
+from shared.contracts.incident_contracts import IncidentEventType
 
 from .analysis import AnalysisEngine
 from .config import (
@@ -122,19 +123,30 @@ class RedisAnalysisWorker:
 
     async def _handle_message(self, client, stream_id: str, fields: dict[str, Any]) -> None:
         incident_id = fields.get("incident_id")
+        request: AnalysisRequestEnvelope | None = None
         try:
             request = AnalysisRequestEnvelope.from_stream_message(fields)
             logger.info("Processing analysis request incident_id=%s stream_id=%s", request.incident_id, stream_id)
 
+            loop = asyncio.get_running_loop()
+            analysis_run_id = request.analysis_run_id
+            terminal_event_payload: dict[str, Any] | None = None
+            terminal_event_message = "Structured recommendation generated"
+
             await self.result_publisher.publish(
                 AnalysisResultEnvelope(
                     incident_id=request.incident_id,
+                    analysis_run_id=analysis_run_id,
                     analysis_status="ANALYZING",
                     analysis_events=[
                         {
                             "event_type": "ANALYSIS_STARTED",
                             "message": "Analysis started for mock incident",
-                            "payload": {"scenario_id": request.scenario_id, "source": request.source},
+                            "payload": {
+                                "scenario_id": request.scenario_id,
+                                "analysis_run_id": analysis_run_id,
+                                "source": request.source,
+                            },
                         }
                     ],
                 )
@@ -150,13 +162,56 @@ class RedisAnalysisWorker:
                 metric_value=request.metric_value,
                 threshold_value=request.threshold_value,
             )
-            analysis_response = await asyncio.to_thread(self.analysis_engine.analyze, analysis_request)
+            published_events: set[str] = set()
+
+            def publish_progress_event(event):
+                nonlocal terminal_event_payload, terminal_event_message
+                event_payload = event.model_dump(mode="json") if hasattr(event, "model_dump") else dict(event)
+                event_payload.setdefault("analysis_run_id", analysis_run_id)
+                event_type = event_payload.get("event_type")
+                if event_type == IncidentEventType.RECOMMENDATION_GENERATED.value:
+                    terminal_event_payload = event_payload
+                    terminal_event_message = str(event_payload.get("message") or terminal_event_message)
+                    return
+                event_key = json.dumps(event_payload, sort_keys=True)
+                if event_key in published_events:
+                    return
+                published_events.add(event_key)
+                future = asyncio.run_coroutine_threadsafe(
+                    self.result_publisher.publish(
+                        AnalysisResultEnvelope(
+                            incident_id=request.incident_id,
+                            analysis_run_id=analysis_run_id,
+                            analysis_status="ANALYZING",
+                            analysis_events=[event_payload],
+                        )
+                    ),
+                    loop,
+                )
+                future.result()
+
+            analysis_response = await asyncio.to_thread(
+                self.analysis_engine.analyze,
+                analysis_request,
+                publish_progress_event,
+            )
             await self.result_publisher.publish(
                 AnalysisResultEnvelope(
                     incident_id=request.incident_id,
+                    analysis_run_id=analysis_run_id,
                     analysis_status="RECOMMENDATION_READY",
                     recommendation=analysis_response.recommendation.model_dump(mode="json"),
-                    analysis_events=[event.model_dump(mode="json") for event in analysis_response.analysis_events],
+                    analysis_events=[terminal_event_payload] if terminal_event_payload is not None else [
+                        {
+                            "event_type": IncidentEventType.RECOMMENDATION_GENERATED.value,
+                            "message": terminal_event_message,
+                            "payload": {
+                                "workflow_stage": "response_composed",
+                                "confidence": analysis_response.recommendation.confidence,
+                                "analysis_run_id": analysis_run_id,
+                            },
+                        }
+                    ],
                     workflow_state=analysis_response.workflow_state,
                 )
             )
@@ -168,12 +223,17 @@ class RedisAnalysisWorker:
                     await self.result_publisher.publish(
                         AnalysisResultEnvelope(
                             incident_id=str(incident_id),
+                            analysis_run_id=request.analysis_run_id if request is not None else None,
                             analysis_status="FAILED",
                             analysis_events=[
                                 {
                                     "event_type": "ANALYSIS_FAILED",
                                     "message": "Analysis failed while processing queued request",
-                                    "payload": {"error": str(exc), "stream_id": stream_id},
+                                    "payload": {
+                                        "error": str(exc),
+                                        "stream_id": stream_id,
+                                        "analysis_run_id": analysis_run_id,
+                                    },
                                 }
                             ],
                             error=str(exc),
